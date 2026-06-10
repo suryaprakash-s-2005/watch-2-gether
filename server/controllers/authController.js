@@ -70,12 +70,13 @@ export const devLogin = async (req, res) => {
 
 
 export const googleCallbackSuccess = (req, res) => {
+  const clientBaseUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
   if (!req.user) {
-    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/login?error=auth_failed`);
+    return res.redirect(`${clientBaseUrl}/login?error=auth_failed`);
   }
 
   const token = generateToken(req.user._id);
-  res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/login?token=${token}`);
+  res.redirect(`${clientBaseUrl}/login?token=${token}`);
 };
 
 

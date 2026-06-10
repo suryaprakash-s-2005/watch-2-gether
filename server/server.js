@@ -23,7 +23,7 @@ const app = express();
 const server = http.createServer(app);
 
 
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
 
 const isOriginAllowed = (origin) => {
   if (!origin) return true;
