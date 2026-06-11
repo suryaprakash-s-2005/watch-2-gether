@@ -53,6 +53,14 @@ const VideoPlayer = () => {
   const [ready, setReady] = useState(false);
   const [isSynced, setIsSynced] = useState(true);
 
+  const isHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
+  const hasControl = isHost || currentRoom?.guestControlEnabled;
+  const videoUrl = currentRoom?.currentVideo
+    ? `https://www.youtube.com/watch?v=${currentRoom.currentVideo}`
+    : null;
+
+  const isValidYoutube = videoUrl && isYoutubeUrl(videoUrl);
+
   // When a guest enters/reloads and the video is already playing, we need them to manually sync/activate playback.
   useEffect(() => {
     if (currentRoom) {
@@ -73,14 +81,6 @@ const VideoPlayer = () => {
       seekTo(currentRoom.currentTime);
     }
   };
-
-  const isHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
-  const hasControl = isHost || currentRoom?.guestControlEnabled;
-  const videoUrl = currentRoom?.currentVideo
-    ? `https://www.youtube.com/watch?v=${currentRoom.currentVideo}`
-    : null;
-
-  const isValidYoutube = videoUrl && isYoutubeUrl(videoUrl);
 
   const getCurrentTime = () => {
     if (!playerRef.current) return 0;
