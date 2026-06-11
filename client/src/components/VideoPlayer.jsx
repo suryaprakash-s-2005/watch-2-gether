@@ -52,7 +52,7 @@ const VideoPlayer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [ready, setReady] = useState(false);
 
-  const isHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId) === String(user._id);
+  const isHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
   const hasControl = isHost || currentRoom?.guestControlEnabled;
   const videoUrl = currentRoom?.currentVideo
     ? `https://www.youtube.com/watch?v=${currentRoom.currentVideo}`
@@ -206,7 +206,7 @@ const VideoPlayer = () => {
             <ReactPlayer
               key={currentRoom?.currentVideo || 'empty'}
               ref={playerRef}
-              src={videoUrl}
+              url={videoUrl}
               width="100%"
               height="100%"
               playing={isPlaying}

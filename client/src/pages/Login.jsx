@@ -45,7 +45,11 @@ const Login = () => {
   }, [searchParams]);
 
   const handleGoogleLogin = () => {
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    const defaultApiUrl = isProduction 
+      ? 'https://watch-2-gether-backend-service.onrender.com/api' 
+      : 'http://localhost:5000/api';
+    const backendUrl = import.meta.env.VITE_API_URL || defaultApiUrl;
     window.location.href = `${backendUrl}/auth/google`;
   };
 

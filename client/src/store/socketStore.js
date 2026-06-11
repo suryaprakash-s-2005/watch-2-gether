@@ -10,11 +10,15 @@ const useSocketStore = create((set, get) => ({
     if (get().socket) return;
 
     set({ isConnecting: true });
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    const defaultSocketUrl = isProduction 
+      ? 'https://watch-2-gether-backend-service.onrender.com' 
+      : 'http://localhost:5000';
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || defaultSocketUrl;
     
     const socketInstance = io(socketUrl, {
       auth: { token },
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
     });
 
     socketInstance.on('connect', () => {

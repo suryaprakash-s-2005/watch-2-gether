@@ -10,7 +10,7 @@ const UserList = () => {
 
   if (!currentRoom) return null;
 
-  const isCurrentUserHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId) === String(user._id);
+  const isCurrentUserHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
 
   return (
     <div className="glass-panel rounded-3xl p-6 flex flex-col h-full border border-slate-800/80">
@@ -23,7 +23,7 @@ const UserList = () => {
 
       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 min-h-[280px] max-h-[350px] md:max-h-[420px] lg:max-h-[500px] xl:max-h-[600px]">
         {roomUsers.map((member) => {
-          const isUserHost = member.userId && currentRoom?.hostId && String(member.userId) === String(currentRoom.hostId);
+          const isUserHost = member.userId && currentRoom?.hostId && String(member.userId) === String(currentRoom.hostId._id || currentRoom.hostId);
           return (
             <div
               key={member.socketId || member.userId}

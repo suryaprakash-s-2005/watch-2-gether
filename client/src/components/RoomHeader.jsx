@@ -15,9 +15,15 @@ const RoomHeader = () => {
 
   if (!currentRoom) return null;
 
-  const isHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId) === String(user._id);
-  const hostUser = roomUsers.find(u => u.userId && currentRoom?.hostId && String(u.userId) === String(currentRoom.hostId));
-  const hostName = hostUser ? hostUser.username : 'Unknown Host';
+  const isHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
+  const hostUser = roomUsers.find(u => u.userId && currentRoom?.hostId && String(u.userId) === String(currentRoom.hostId._id || currentRoom.hostId));
+  
+  let hostName = 'Unknown Host';
+  if (hostUser) {
+    hostName = hostUser.username;
+  } else if (isHost && user?.name) {
+    hostName = user.name;
+  }
 
   
   const extractYoutubeId = (url) => {

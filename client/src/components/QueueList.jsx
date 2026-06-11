@@ -11,7 +11,7 @@ const QueueList = () => {
   if (!currentRoom) return null;
 
   const queue = currentRoom.queue || [];
-  const isHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId) === String(user._id);
+  const isHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
 
   const handlePlayItem = (itemId) => {
     emitApproveQueueItem(itemId);
