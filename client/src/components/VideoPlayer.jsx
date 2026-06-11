@@ -34,7 +34,7 @@ const PLAYER_CONFIG = {
 const VideoPlayer = () => {
   const { currentRoom, playbackCommand, setPlaybackCommand, updateRoomPlayback } = useRoomStore();
   const { user } = useAuthStore();
-  const { emitVideoPlay, emitVideoPause, emitVideoSeek } = useSocketStore();
+  const { emitVideoPlay, emitVideoPause, emitVideoSeek, emitVideoSync } = useSocketStore();
 
   const playerRef = useRef(null);
   const localVersionRef = useRef(0);
@@ -51,6 +51,28 @@ const VideoPlayer = () => {
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [ready, setReady] = useState(false);
+  const [isSynced, setIsSynced] = useState(true);
+
+  // When a guest enters/reloads and the video is already playing, we need them to manually sync/activate playback.
+  useEffect(() => {
+    if (currentRoom) {
+      if (!currentRoom.isPlaying) {
+        setIsSynced(true);
+      } else if (!isHost && isSynced && !hasSyncedInitial.current) {
+        setIsSynced(false);
+      }
+    }
+  }, [currentRoom?.currentVideo, currentRoom?.isPlaying, isHost]);
+
+  const handleSyncClick = () => {
+    setIsSynced(true);
+    hasSyncedInitial.current = true;
+    if (currentRoom) {
+      suppress(2000);
+      setIsPlaying(true);
+      seekTo(currentRoom.currentTime);
+    }
+  };
 
   const isHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
   const hasControl = isHost || currentRoom?.guestControlEnabled;
@@ -91,7 +113,11 @@ const VideoPlayer = () => {
     if (currentRoom?.currentVideo) {
       hasSyncedInitial.current = true;
       suppress(2000); 
-      setIsPlaying(currentRoom.isPlaying);
+      if (isHost || !currentRoom.isPlaying) {
+        setIsPlaying(currentRoom.isPlaying);
+      } else {
+        setIsPlaying(false);
+      }
       seekTo(currentRoom.currentTime);
     }
   };
@@ -137,7 +163,7 @@ const VideoPlayer = () => {
     } else if (type === 'drift-sync') {
       const localTime = getCurrentTime();
       const drift = Math.abs(localTime - time);
-      if (drift > 2.0) {
+      if (drift > 1.0) {
         suppress(1200);
         seekTo(time);
         updateRoomPlayback({ currentTime: time });
@@ -193,6 +219,20 @@ const VideoPlayer = () => {
     hasSyncedInitial.current = false;
   }, [videoUrl]);
 
+  // Host periodic sync emission
+  useEffect(() => {
+    if (!isHost || !isValidYoutube || !ready || !isPlaying) return;
+
+    const interval = setInterval(() => {
+      const time = getCurrentTime();
+      if (time > 0) {
+        emitVideoSync(time);
+      }
+    }, 4000); // sync every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [isHost, isValidYoutube, ready, isPlaying, emitVideoSync]);
+
   return (
     <div className="relative aspect-video w-full rounded-3xl overflow-hidden bg-slate-950 border border-slate-800/80 shadow-2xl">
       {isValidYoutube ? (
@@ -209,7 +249,7 @@ const VideoPlayer = () => {
               src={videoUrl}
               width="100%"
               height="100%"
-              playing={isPlaying}
+              playing={isSynced && isPlaying}
               controls={hasControl}
               onReady={onPlayerReady}
               onPlay={handlePlay}
@@ -224,6 +264,23 @@ const VideoPlayer = () => {
               style={{ pointerEvents: 'auto' }}
               title="Controls locked. Only the Host can control video playback."
             />
+          )}
+          {!isSynced && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm z-30 p-4 text-center">
+              <div className="p-4 bg-youtube-red/10 border border-youtube-red/20 rounded-full text-youtube-red mb-4 animate-bounce">
+                <Tv className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Watch Party is Active</h3>
+              <p className="text-xs text-slate-400 max-w-xs mb-6">
+                The host is streaming a video. Click below to synchronize your playback and audio.
+              </p>
+              <button
+                onClick={handleSyncClick}
+                className="bg-youtube-red hover:bg-youtube-hover text-white font-bold text-sm px-6 py-3 rounded-2xl shadow-lg shadow-youtube-red/20 transition-all duration-200 active:scale-95 cursor-pointer"
+              >
+                Join & Sync Stream
+              </button>
+            </div>
           )}
         </div>
       ) : (

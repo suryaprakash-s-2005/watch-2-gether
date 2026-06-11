@@ -248,10 +248,17 @@ export const roomSocketHandler = (io) => {
       try {
         const isHost = await validateHost(code, socket.user._id);
         if (isHost) {
-          await Room.findOneAndUpdate(
+          const room = await Room.findOneAndUpdate(
             { roomCode: code },
-            { $set: { currentTime } }
+            { $set: { currentTime, lastStateChange: new Date() } },
+            { new: true }
           );
+          
+          socket.broadcast.to(code).emit('video-sync', {
+            currentTime,
+            syncVersion: room.syncVersion,
+            isPlaying: true
+          });
         }
       } catch (err) {
         console.error(err);
