@@ -59,6 +59,37 @@ const GlobalMiniPlayer = () => {
   // Custom mini player size state for desktop/tablet resizing
   const [miniWidth, setMiniWidth] = useState(320);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
+  const [isReady, setIsReady] = useState(false);
+  const lastSyncedVideoId = useRef(null);
+
+  const [prevVideoId, setPrevVideoId] = useState(currentVideoId);
+
+  // Reset player ready states on video change (React standard render-reset pattern)
+  if (currentVideoId !== prevVideoId) {
+    setPrevVideoId(currentVideoId);
+    setIsReady(false);
+    setIsPlaying(false);
+  }
+
+  const onPlayerReady = () => {
+    setIsReady(true);
+    if (lastSyncedVideoId.current === currentVideoId) return;
+
+    if (currentVideoId) {
+      lastSyncedVideoId.current = currentVideoId;
+      suppress(2000);
+      
+      const shouldPlay = currentRoom ? currentRoom.isPlaying : false;
+      if (isHost || !shouldPlay) {
+        setIsPlaying(shouldPlay);
+      } else {
+        setIsPlaying(false);
+      }
+      if (currentRoom) {
+        seekTo(currentRoom.currentTime);
+      }
+    }
+  };
 
   const videoUrl = currentVideoId ? `https://www.youtube.com/watch?v=${currentVideoId}` : null;
   const isValidYoutube = videoUrl && isYoutubeUrl(videoUrl);
@@ -115,7 +146,7 @@ const GlobalMiniPlayer = () => {
 
   // Process playback commands from the socket store
   useEffect(() => {
-    if (!isValidYoutube || !playbackCommand) return;
+    if (!isValidYoutube || !playbackCommand || !isReady) return;
 
     const { type, time, isPlaying: shouldPlay, syncVersion } = playbackCommand;
 
@@ -189,7 +220,7 @@ const GlobalMiniPlayer = () => {
     }
 
     setPlaybackCommand(null);
-  }, [playbackCommand, isValidYoutube, isPlaying, setIsPlaying, setPlaybackCommand, updateRoomPlayback]);
+  }, [playbackCommand, isValidYoutube, isReady, isPlaying, setIsPlaying, setPlaybackCommand, updateRoomPlayback]);
 
   // Handle player events and report them
   const handlePlay = () => {
@@ -418,7 +449,7 @@ const GlobalMiniPlayer = () => {
             playing={isSynced && isPlaying}
             controls={hasControl && !isMiniPlayer} // Custom controls overlay on mini mode
             volume={isMuted ? 0 : volume}
-            onReady={() => console.log('Global player ready')}
+            onReady={onPlayerReady}
             onPlay={handlePlay}
             onPause={handlePause}
             onSeek={handleSeek}
