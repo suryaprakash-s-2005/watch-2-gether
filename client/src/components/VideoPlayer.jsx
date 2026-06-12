@@ -163,10 +163,11 @@ const VideoPlayer = () => {
     } else if (type === 'drift-sync') {
       const localTime = getCurrentTime();
       const drift = Math.abs(localTime - time);
-      if (drift > 1.0) {
+      if (!isPlaying || drift > 1.0) {
         suppress(1200);
+        setIsPlaying(true);
         seekTo(time);
-        updateRoomPlayback({ currentTime: time });
+        updateRoomPlayback({ isPlaying: true, currentTime: time });
       }
       
     }
@@ -192,9 +193,14 @@ const VideoPlayer = () => {
   const handlePause = () => {
     if (isSuppressed()) return; 
     if (!hasControl) return;
+    
+    // Ignore pause events triggered by browser auto-suspending video when backgrounded/screen locked
+    if (typeof document !== 'undefined' && document.hidden) {
+      console.log('Ignoring background auto-pause');
+      return;
+    }
+
     const currentTime = getCurrentTime();
-    
-    
     setIsPlaying(false);
     updateRoomPlayback({ isPlaying: false, currentTime });
     
@@ -232,6 +238,23 @@ const VideoPlayer = () => {
 
     return () => clearInterval(interval);
   }, [isHost, isValidYoutube, ready, isPlaying, emitVideoSync]);
+
+  // Handle page visibility change (automatically resume and sync playback when returning to foreground)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (typeof document === 'undefined') return;
+      
+      if (!document.hidden && currentRoom?.isPlaying && isSynced) {
+        console.log('App returned to foreground, resuming playback...');
+        suppress(2000);
+        setIsPlaying(true);
+        seekTo(currentRoom.currentTime);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [currentRoom?.isPlaying, currentRoom?.currentTime, isSynced]);
 
   return (
     <div className="relative aspect-video w-full rounded-3xl overflow-hidden bg-slate-950 border border-slate-800/80 shadow-2xl">

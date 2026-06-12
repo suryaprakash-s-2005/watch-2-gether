@@ -22,6 +22,7 @@ const Friends = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [requestStatus, setRequestStatus] = useState({ success: null, message: '' });
   const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedFriend, setSelectedFriend] = useState(null);
   const bubbleContainerRef = useRef(null);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
 
@@ -496,6 +497,7 @@ const Friends = () => {
             {}
             <div 
               ref={bubbleContainerRef}
+              onClick={() => setSelectedFriend(null)}
               className="flex-1 bg-slate-950/40 rounded-2xl border border-slate-900 relative overflow-hidden min-h-[360px] flex items-center justify-center cursor-grab active:cursor-grabbing"
             >
               {friends.length === 0 ? (
@@ -504,79 +506,129 @@ const Friends = () => {
                   Floating bubbles will appear here once you watch videos with friends.
                 </div>
               ) : (
-                
-                friends.map((friend, idx) => {
-                  const bubble = getBubbleSizeClass(friend.hoursTogether, maxHours);
-                  
-                  
-                  const total = friends.length;
-                  const angle = (idx / total) * 2 * Math.PI;
-                  const radius = (isMobile ? 55 : 80) + idx * (isMobile ? 5 : 8); // spiral spread scaled for mobile
-                  
-                  const initX = Math.cos(angle) * radius;
-                  const initY = Math.sin(angle) * radius;
+                <>
+                  {friends.map((friend, idx) => {
+                    const bubble = getBubbleSizeClass(friend.hoursTogether, maxHours);
+                    
+                    const total = friends.length;
+                    const angle = (idx / total) * 2 * Math.PI;
+                    const radius = Math.min((isMobile ? 45 : 70) + (idx % 5) * (isMobile ? 8 : 12), isMobile ? 80 : 130);
+                    
+                    const initX = Math.cos(angle) * radius;
+                    const initY = Math.sin(angle) * radius;
 
-                  // Unique animated float settings per bubble
-                  const duration = 6 + (idx % 3) * 2;
-                  const yFloat = [initY, initY - 15, initY + 5, initY];
-                  const xFloat = [initX, initX + 8, initX - 8, initX];
-                  
-                  return (
-                    <motion.div
-                      key={friend._id}
-                      drag
-                      dragConstraints={bubbleContainerRef}
-                      dragElastic={0.4}
-                      dragMomentum={true}
-                      initial={{ scale: 0, x: initX, y: initY }}
-                      animate={{ 
-                        scale: 1,
-                        x: xFloat,
-                        y: yFloat
-                      }}
-                      transition={{
-                        scale: { duration: 0.5, delay: idx * 0.1 },
-                        x: { repeat: Infinity, duration: duration, ease: "easeInOut" },
-                        y: { repeat: Infinity, duration: duration - 1, ease: "easeInOut" }
-                      }}
-                      className="absolute flex items-center justify-center group"
-                      style={{
-                        width: bubble.size,
-                        height: bubble.size,
-                        zIndex: 10 + idx
-                      }}
-                    >
-                      {/* Glow backing */}
-                      <div className="absolute inset-0 bg-gradient-to-tr from-youtube-red to-sky-500 rounded-full opacity-20 group-hover:opacity-40 blur transition duration-300"></div>
-                      
-                      {}
-                      <div 
-                        className="w-[92%] h-[92%] rounded-full overflow-hidden border border-white/10 group-hover:border-youtube-red/50 shadow-xl bg-slate-900 flex flex-col items-center justify-center relative z-10 transition duration-300 cursor-pointer"
-                        onClick={() => navigate(`/profile/${friend.username}`)}
+                    // Unique animated float settings per bubble
+                    const duration = 6 + (idx % 3) * 2;
+                    const yFloat = [initY, initY - 15, initY + 5, initY];
+                    const xFloat = [initX, initX + 8, initX - 8, initX];
+                    
+                    return (
+                      <motion.div
+                        key={friend._id}
+                        drag
+                        dragConstraints={bubbleContainerRef}
+                        dragElastic={0.4}
+                        dragMomentum={true}
+                        initial={{ scale: 0, x: initX, y: initY }}
+                        animate={{ 
+                          scale: 1,
+                          x: xFloat,
+                          y: yFloat
+                        }}
+                        transition={{
+                          scale: { duration: 0.5, delay: idx * 0.1 },
+                          x: { repeat: Infinity, duration: duration, ease: "easeInOut" },
+                          y: { repeat: Infinity, duration: duration - 1, ease: "easeInOut" }
+                        }}
+                        className="absolute flex items-center justify-center group"
+                        style={{
+                          width: bubble.size,
+                          height: bubble.size,
+                          zIndex: 10 + idx
+                        }}
                       >
-                        <img 
-                          src={friend.avatar} 
-                          alt={friend.displayName} 
-                          className="w-full h-full object-cover absolute inset-0 pointer-events-none group-hover:scale-105 group-hover:brightness-[0.35] transition-all duration-300"
-                        />
+                        {/* Glow backing */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-youtube-red to-sky-500 rounded-full opacity-20 group-hover:opacity-40 blur transition duration-300"></div>
                         
-                        {/* Text Overlay on Hover */}
-                        <div className="absolute inset-0 bg-slate-950/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center p-2 text-center transition-opacity duration-200">
-                          <p className="text-[10px] font-bold text-white truncate max-w-full">{friend.displayName}</p>
-                          <p className="text-[8px] text-sky-400 font-bold mt-0.5">{friend.hoursTogether}h watched</p>
+                        <div 
+                          className="w-[92%] h-[92%] rounded-full overflow-hidden border border-white/10 group-hover:border-youtube-red/50 shadow-xl bg-slate-900 flex flex-col items-center justify-center relative z-10 transition duration-300 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedFriend(friend);
+                          }}
+                        >
+                          <img 
+                            src={friend.avatar} 
+                            alt={friend.displayName} 
+                            className="w-full h-full object-cover absolute inset-0 pointer-events-none group-hover:scale-105 group-hover:brightness-[0.35] transition-all duration-300"
+                          />
+                          
+                          {/* Text Overlay on Hover */}
+                          <div className="absolute inset-0 bg-slate-950/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center p-2 text-center transition-opacity duration-200">
+                            <p className="text-[10px] font-bold text-white truncate max-w-full">{friend.displayName}</p>
+                            <p className="text-[8px] text-sky-400 font-bold mt-0.5">{friend.hoursTogether}h watched</p>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Tooltip on Hover */}
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-950/95 border border-slate-800 text-white rounded-xl p-2.5 shadow-xl w-36 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 z-50 text-[10px]">
-                        <div className="font-bold border-b border-slate-800 pb-1 mb-1 truncate text-white">{friend.displayName}</div>
-                        <div className="flex items-center gap-1 mt-1 text-slate-400"><Clock size={10} /> {formatLastSeen(friend.lastSeen)}</div>
-                        <div className="flex items-center gap-1 mt-0.5 text-sky-400 font-bold"><Sparkles size={10} /> {friend.hoursTogether}h watched</div>
-                        <div className="text-[8px] text-slate-500 mt-1 italic leading-none">{bubble.label}</div>
-                      </div>
-                    </motion.div>
-                  );
-                })
+                        {/* Tooltip on Hover */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-950/95 border border-slate-800 text-white rounded-xl p-2.5 shadow-xl w-36 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 z-50 text-[10px]">
+                          <div className="font-bold border-b border-slate-800 pb-1 mb-1 truncate text-white">{friend.displayName}</div>
+                          <div className="flex items-center gap-1 mt-1 text-slate-400"><Clock size={10} /> {formatLastSeen(friend.lastSeen)}</div>
+                          <div className="flex items-center gap-1 mt-0.5 text-sky-400 font-bold"><Sparkles size={10} /> {friend.hoursTogether}h watched</div>
+                          <div className="text-[8px] text-slate-500 mt-1 italic leading-none">{bubble.label}</div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+
+                  {/* Details Overlay Card */}
+                  <AnimatePresence>
+                    {selectedFriend && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                        className="absolute bottom-3 left-3 right-3 bg-slate-950/90 backdrop-blur-md border border-slate-800/80 rounded-2xl p-3 flex items-center justify-between shadow-2xl z-30"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <img 
+                              src={selectedFriend.avatar} 
+                              alt={selectedFriend.displayName} 
+                              className="w-10 h-10 rounded-full object-cover border border-slate-800 bg-slate-900"
+                            />
+                            <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-slate-950 ${
+                              formatLastSeen(selectedFriend.lastSeen) === 'Online' ? 'bg-emerald-500' : 'bg-slate-500'
+                            }`}></div>
+                          </div>
+                          <div className="text-left">
+                            <h4 className="text-xs font-bold text-white leading-tight">{selectedFriend.displayName}</h4>
+                            <p className="text-[10px] text-slate-400">@{selectedFriend.username}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[10px] text-slate-400">
+                          <div className="flex flex-col items-end">
+                            <span className="text-sky-400 font-bold flex items-center gap-1">
+                              <Clock size={10} /> {selectedFriend.hoursTogether}h watched
+                            </span>
+                            <span className="text-[9px] text-slate-500">
+                              Active: {formatLastSeen(selectedFriend.lastSeen)}
+                            </span>
+                          </div>
+                          
+                          <button
+                            onClick={() => navigate(`/profile/${selectedFriend.username}`)}
+                            className="bg-youtube-red hover:bg-youtube-hover text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition"
+                          >
+                            View Profile
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
               )}
             </div>
           </div>

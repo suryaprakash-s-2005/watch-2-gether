@@ -92,6 +92,32 @@ export const getProfile = async (req, res) => {
 
     const badges = getBadges(user, friendsCount);
 
+    // Fetch friends details for social graph
+    let friends = [];
+    const acceptedFriendships = await Friendship.find({
+      status: 'accepted',
+      $or: [{ requesterId: user._id }, { receiverId: user._id }]
+    });
+
+    for (const f of acceptedFriendships) {
+      const friendId = f.requesterId.toString() === user._id.toString() ? f.receiverId : f.requesterId;
+      const friendUser = await User.findById(friendId).select('name username displayName avatar bio lastSeen totalWatchMinutes');
+      if (friendUser) {
+        friends.push({
+          _id: friendUser._id,
+          name: friendUser.name,
+          username: friendUser.username,
+          displayName: friendUser.displayName,
+          avatar: friendUser.avatar,
+          bio: friendUser.bio,
+          lastSeen: friendUser.lastSeen,
+          totalWatchMinutes: friendUser.totalWatchMinutes,
+          hoursTogether: Math.round((f.sharedMinutes / 60) * 10) / 10,
+          lastInteraction: f.lastInteraction
+        });
+      }
+    }
+
     res.status(200).json({
       _id: user._id,
       username: user.username,
@@ -108,7 +134,8 @@ export const getProfile = async (req, res) => {
       sharedWatchMinutes: user.sharedWatchMinutes,
       friendsCount,
       friendshipState,
-      badges
+      badges,
+      friends
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

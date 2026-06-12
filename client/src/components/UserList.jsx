@@ -1,12 +1,17 @@
+import { useState } from 'react';
 import useRoomStore from '../store/roomStore';
 import useAuthStore from '../store/authStore';
 import useSocketStore from '../store/socketStore';
 import { Users, Star, User, Crown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const UserList = () => {
   const { currentRoom, roomUsers } = useRoomStore();
   const { user } = useAuthStore();
   const { emitTransferHost } = useSocketStore();
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [targetMember, setTargetMember] = useState(null);
 
   if (!currentRoom) return null;
 
@@ -64,9 +69,8 @@ const UserList = () => {
                 isCurrentUserHost && (
                   <button
                     onClick={() => {
-                      if (window.confirm(`Are you sure you want to transfer the Host role to ${member.username}?`)) {
-                        emitTransferHost(member.userId);
-                      }
+                      setTargetMember(member);
+                      setShowConfirmModal(true);
                     }}
                     className="p-1.5 bg-slate-800 hover:bg-yellow-500/10 hover:text-yellow-500 border border-slate-700/60 text-slate-400 hover:scale-105 active:scale-95 rounded-xl transition duration-150 flex items-center justify-center cursor-pointer shrink-0"
                     title={`Transfer host permissions to ${member.username}`}
@@ -79,6 +83,67 @@ const UserList = () => {
           );
         })}
       </div>
+
+      {/* Custom Confirmation Modal Dialog Box */}
+      <AnimatePresence>
+        {showConfirmModal && targetMember && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fadeIn">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowConfirmModal(false);
+                setTargetMember(null);
+              }}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            
+            {/* Modal Box */}
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl z-10 flex flex-col items-center text-center"
+            >
+              <div className="w-12 h-12 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-full flex items-center justify-center mb-4">
+                <Crown size={24} />
+              </div>
+              
+              <h3 className="text-lg font-bold text-white mb-2">
+                Transfer Host Role
+              </h3>
+              
+              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                Are you sure you want to transfer the Host role to <span className="text-white font-semibold">@{targetMember.username}</span>? You will lose control over the playback.
+              </p>
+              
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => {
+                    setShowConfirmModal(false);
+                    setTargetMember(null);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-750 bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs transition active:scale-[0.98] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    emitTransferHost(targetMember.userId);
+                    setShowConfirmModal(false);
+                    setTargetMember(null);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-500 text-slate-950 font-extrabold text-xs transition active:scale-[0.98] shadow-lg shadow-yellow-500/10 cursor-pointer"
+                >
+                  Transfer Role
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
