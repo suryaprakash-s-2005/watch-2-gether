@@ -11,6 +11,7 @@ import roomRoutes from './routes/roomRoutes.js';
 import friendRoutes from './routes/friendRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
 import { roomSocketHandler } from './sockets/roomSocket.js';
 import './config/passport.js';
 
@@ -57,6 +58,7 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/chat', chatRoutes);
 
 
 app.get('/health', (req, res) => {

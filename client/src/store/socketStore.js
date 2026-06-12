@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { io } from 'socket.io-client';
 import useRoomStore from './roomStore';
+import useChatStore from './chatStore';
+import useAuthStore from './authStore';
 
 const useSocketStore = create((set, get) => ({
   socket: null,
@@ -142,15 +144,66 @@ const useSocketStore = create((set, get) => ({
       roomStore.setPlaybackCommand({ type: 'drift-sync', time: data.currentTime, syncVersion: data.syncVersion });
     });
 
-    
+    // Upgraded Chat Events
     socketInstance.on('chat-message', (message) => {
       const roomStore = useRoomStore.getState();
       roomStore.addChatMessage(message);
+
+      // Track unread/mention notifications when chat panel is closed/inactive
+      const chatStore = useChatStore.getState();
+      if (!chatStore.isChatActive && !message.isSystem) {
+        const currentUser = useAuthStore.getState().user;
+        const isMentioned = message.mentions?.some(
+          (id) => String(id) === String(currentUser?._id)
+        );
+
+        if (isMentioned) {
+          chatStore.incrementMentionCount();
+        } else {
+          chatStore.incrementUnreadCount();
+        }
+      }
     });
 
     socketInstance.on('chat-history', (messages) => {
       const roomStore = useRoomStore.getState();
       roomStore.setChatHistory(messages);
+      
+      // Clear typing states on room switch or loading history
+      useChatStore.getState().clearTypingUsers();
+    });
+
+    socketInstance.on('typing-start', (data) => {
+      useChatStore.getState().addTypingUser(data);
+    });
+
+    socketInstance.on('typing-stop', (data) => {
+      useChatStore.getState().removeTypingUser(data.userId);
+    });
+
+    socketInstance.on('reaction-added', ({ messageId, reactions }) => {
+      const roomStore = useRoomStore.getState();
+      roomStore.setChatHistory(
+        roomStore.chatMessages.map((msg) =>
+          msg._id === messageId ? { ...msg, reactions } : msg
+        )
+      );
+    });
+
+    socketInstance.on('reaction-removed', ({ messageId, reactions }) => {
+      const roomStore = useRoomStore.getState();
+      roomStore.setChatHistory(
+        roomStore.chatMessages.map((msg) =>
+          msg._id === messageId ? { ...msg, reactions } : msg
+        )
+      );
+    });
+
+    socketInstance.on('mention-notification', (data) => {
+      const chatStore = useChatStore.getState();
+      if (!chatStore.isChatActive) {
+        chatStore.incrementMentionCount();
+      }
     });
 
     socketInstance.on('error-msg', (message) => {
@@ -169,6 +222,7 @@ const useSocketStore = create((set, get) => ({
 
     socketInstance.on('disconnect', () => {
       set({ socket: null });
+      useChatStore.getState().clearTypingUsers();
     });
   },
 
@@ -178,6 +232,7 @@ const useSocketStore = create((set, get) => ({
       socket.disconnect();
       set({ socket: null });
     }
+    useChatStore.getState().clearTypingUsers();
   },
 
   emitVideoChange: (videoId) => {
@@ -205,9 +260,14 @@ const useSocketStore = create((set, get) => ({
     if (socket) socket.emit('video-sync', { currentTime });
   },
 
-  emitChatMessage: (message) => {
+  emitChatMessage: (message, replyTo = null, mentions = []) => {
     const { socket } = get();
-    if (socket) socket.emit('chat-message', { message });
+    if (socket) socket.emit('chat-message', { message, replyTo, mentions });
+  },
+
+  emitMessageReaction: (messageId, emoji) => {
+    const { socket } = get();
+    if (socket) socket.emit('message-reaction', { messageId, emoji });
   },
 
   emitSetGuestControl: (enabled) => {

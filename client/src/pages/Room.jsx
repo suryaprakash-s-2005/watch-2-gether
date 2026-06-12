@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import useRoomStore from '../store/roomStore';
 import useAuthStore from '../store/authStore';
 import useSocketStore from '../store/socketStore';
+import useChatStore from '../store/chatStore';
 import Navbar from '../components/Navbar';
 import RoomHeader from '../components/RoomHeader';
 import VideoPlayer from '../components/VideoPlayer';
@@ -18,14 +19,20 @@ const Room = () => {
   const { token } = useAuthStore();
   const { currentRoom, roomLoading, roomError, getRoomDetails, clearRoomState } = useRoomStore();
   const { connectSocket, disconnectSocket } = useSocketStore();
+  const { unreadCount, mentionCount, setChatActive } = useChatStore();
 
   const [activeTab, setActiveTab] = useState('chat');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // Synchronize chat active state in store
+  useEffect(() => {
+    const isActive = isSidebarOpen && activeTab === 'chat';
+    setChatActive(isActive);
+  }, [isSidebarOpen, activeTab, setChatActive]);
+
   useEffect(() => {
     if (!roomCode) return;
 
-    
     getRoomDetails(roomCode).then((room) => {
       if (room && token) {
         connectSocket(token, roomCode.toUpperCase());
@@ -117,10 +124,10 @@ const Room = () => {
             !isSidebarOpen ? 'md:hidden' : ''
           }`}>
             {/* Tab Bar Selector */}
-            <div className="flex bg-slate-900/60 p-1.5 rounded-2xl border border-slate-800/80 font-bold text-xs gap-1.5 shadow-inner shrink-0">
+            <div className="flex bg-slate-900/60 p-1.5 rounded-2xl border border-slate-800/80 font-bold text-xs gap-1.5 shadow-inner shrink-0 font-sans">
               <button
                 onClick={() => setActiveTab('chat')}
-                className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer relative ${
                   activeTab === 'chat' 
                     ? 'bg-slate-800 text-white border border-slate-700/40 shadow-md' 
                     : 'text-slate-400 hover:text-slate-200'
@@ -128,6 +135,15 @@ const Room = () => {
               >
                 <MessageSquare size={13} />
                 <span>Chat</span>
+                {mentionCount > 0 && activeTab !== 'chat' ? (
+                  <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-extrabold text-[9px] px-1.5 py-0.5 rounded-full flex items-center justify-center animate-pulse border border-slate-900 shadow">
+                    @{mentionCount}
+                  </span>
+                ) : unreadCount > 0 && activeTab !== 'chat' ? (
+                  <span className="absolute -top-1 -right-1 bg-youtube-red text-white font-extrabold text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center border border-slate-900 shadow">
+                    {unreadCount}
+                  </span>
+                ) : null}
               </button>
               <button
                 onClick={() => setActiveTab('queue')}

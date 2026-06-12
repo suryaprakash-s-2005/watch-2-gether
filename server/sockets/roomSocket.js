@@ -5,6 +5,7 @@ import Message from '../models/Message.js';
 import Friendship from '../models/Friendship.js';
 import WatchSession from '../models/WatchSession.js';
 import UserAnalytics from '../models/UserAnalytics.js';
+import { registerChatHandlers } from './chatSocket.js';
 
 
 const getVideoTitle = async (videoId) => {
@@ -46,6 +47,8 @@ export const roomSocketHandler = (io) => {
   io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id} (User: ${socket.user?.name})`);
     
+    // Register upgraded chat socket events
+    registerChatHandlers(io, socket);
     
     socket.join(socket.user._id.toString());
 
@@ -107,10 +110,12 @@ export const roomSocketHandler = (io) => {
           queue: room.queue || []
         });
 
-        // Load chat history
-        const messages = await Message.find({ roomId: room._id })
-          .sort({ timestamp: 1 })
-          .limit(50);
+        // Load chat history from the last 24 hours
+        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const messages = await Message.find({
+          roomId: room._id,
+          createdAt: { $gte: yesterday }
+        }).sort({ createdAt: 1 });
         socket.emit('chat-history', messages);
 
       } catch (error) {
@@ -434,27 +439,8 @@ export const roomSocketHandler = (io) => {
     });
 
     
-    socket.on('chat-message', async ({ message }) => {
-      const code = socket.roomCode;
-      if (!code) return;
-
-      try {
-        const room = await Room.findOne({ roomCode: code });
-        if (!room) return;
-
-        const chatMsg = await Message.create({
-          roomId: room._id,
-          senderId: socket.user._id,
-          senderName: socket.user.name,
-          message
-        });
-
-        io.to(code).emit('chat-message', chatMsg);
-      } catch (err) {
-        console.error('Error broadcasting chat message:', err);
-      }
-    });
-
+    // Note: Upgraded chat messaging is now handled in chatSocket.js
+    
     
     socket.on('disconnect', async () => {
       const code = socket.roomCode;
