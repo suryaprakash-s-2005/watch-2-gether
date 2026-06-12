@@ -38,12 +38,14 @@ const VideoPlayer = () => {
     const updateRect = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
+
         setSlotRect({
           left: rect.left,
           top: rect.top,
           width: rect.width,
           height: rect.height,
         });
+
       }
     };
 

@@ -62,14 +62,11 @@ const GlobalMiniPlayer = () => {
   const [isReady, setIsReady] = useState(false);
   const lastSyncedVideoId = useRef(null);
 
-  const [prevVideoId, setPrevVideoId] = useState(currentVideoId);
-
-  // Reset player ready states on video change (React standard render-reset pattern)
-  if (currentVideoId !== prevVideoId) {
-    setPrevVideoId(currentVideoId);
+  // Reset player ready states on video change
+  useEffect(() => {
     setIsReady(false);
     setIsPlaying(false);
-  }
+  }, [currentVideoId, setIsPlaying]);
 
   const onPlayerReady = () => {
     setIsReady(true);
@@ -443,7 +440,7 @@ const GlobalMiniPlayer = () => {
         }>
           <ReactPlayer
             ref={playerRef}
-            url={videoUrl}
+            src={videoUrl}
             width="100%"
             height={isMobile && isMiniPlayer ? '0px' : '100%'} // Hide video frame on mobile docked controls
             playing={isSynced && isPlaying}
