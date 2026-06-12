@@ -213,6 +213,40 @@ const MessageItem = ({ msg, onReplySelect }) => {
         </div>
       </div>
 
+      {/* Mobile/Touch Actions Row */}
+      <div className="flex items-center gap-2.5 mt-2 ml-11 md:hidden select-none">
+        <button
+          type="button"
+          onClick={() => onReplySelect(msg)}
+          className="text-[10px] text-slate-400 hover:text-white font-bold transition flex items-center gap-1 bg-slate-800/45 border border-slate-700/25 px-2.5 py-1.5 rounded-xl cursor-pointer active:scale-95"
+        >
+          <Reply size={10.5} />
+          <span>Reply</span>
+        </button>
+        
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowReactionPicker(!showReactionPicker)}
+            className="text-[10px] text-slate-400 hover:text-white font-bold transition flex items-center gap-1 bg-slate-800/45 border border-slate-700/25 px-2.5 py-1.5 rounded-xl cursor-pointer active:scale-95"
+          >
+            <Smile size={10.5} />
+            <span>React</span>
+          </button>
+          
+          <AnimatePresence>
+            {showReactionPicker && (
+              <div className="absolute bottom-full left-0 mb-1 z-30">
+                <ReactionPicker
+                  onSelect={handleReact}
+                  onClose={() => setShowReactionPicker(false)}
+                />
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
       {/* Hover Actions Menu (Discord-style overlay) */}
       <div className="absolute top-0.5 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-slate-900 border border-slate-800 rounded-lg shadow-xl flex items-center divide-x divide-slate-800 z-20 overflow-hidden h-fit select-none">
         <div className="relative">

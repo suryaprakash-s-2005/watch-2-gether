@@ -534,6 +534,12 @@ const Friends = () => {
                         }}
                         className="absolute flex items-center justify-center group"
                         style={{
+                          left: '50%',
+                          top: '50%',
+                          x: initX,
+                          y: initY,
+                          translateX: '-50%',
+                          translateY: '-50%',
                           width: bubble.size,
                           height: bubble.size,
                           zIndex: 10 + idx
