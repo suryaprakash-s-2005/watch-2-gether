@@ -10,6 +10,7 @@ import VideoPlayer from '../components/VideoPlayer';
 import UserList from '../components/UserList';
 import QueueList from '../components/QueueList';
 import ChatBox from '../components/ChatBox';
+import usePlayerStore from '../store/playerStore';
 import { ArrowLeft, RefreshCw, Tv, MessageSquare, ListVideo, Users, LogOut } from 'lucide-react';
 
 const Room = () => {
@@ -33,15 +34,30 @@ const Room = () => {
   useEffect(() => {
     if (!roomCode) return;
 
+    // Teardown previous room state and socket if joining a different room
+    const activeRoomCode = usePlayerStore.getState().roomId;
+    if (activeRoomCode && activeRoomCode !== roomCode.toUpperCase()) {
+      disconnectSocket();
+      clearRoomState();
+      usePlayerStore.getState().resetPlayer();
+    }
+
     getRoomDetails(roomCode).then((room) => {
       if (room && token) {
         connectSocket(token, roomCode.toUpperCase());
+        usePlayerStore.getState().initPlayer(roomCode.toUpperCase(), room.currentVideo);
       }
     });
 
     return () => {
-      disconnectSocket();
-      clearRoomState();
+      // Preserve socket connection if global player is active and playing
+      const playerState = usePlayerStore.getState();
+      if (playerState.isClosed) {
+        disconnectSocket();
+        clearRoomState();
+      } else {
+        playerState.setIsMiniPlayer(true);
+      }
     };
   }, [roomCode, token, getRoomDetails, connectSocket, disconnectSocket, clearRoomState]);
 
@@ -103,7 +119,12 @@ const Room = () => {
               {isSidebarOpen ? 'Cinema Mode (Hide Chat)' : 'Show Sidebar (Chat & Queue)'}
             </button>
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => {
+                usePlayerStore.getState().resetPlayer();
+                disconnectSocket();
+                clearRoomState();
+                navigate('/dashboard');
+              }}
               className="flex items-center gap-1.5 bg-youtube-red hover:bg-youtube-hover text-white py-1.5 px-3.5 rounded-xl text-xs font-bold transition shadow hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
             >
               <LogOut size={13} />

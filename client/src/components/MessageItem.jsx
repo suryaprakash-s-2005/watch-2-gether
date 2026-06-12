@@ -248,12 +248,12 @@ const MessageItem = ({ msg, onReplySelect }) => {
       </div>
 
       {/* Hover Actions Menu (Discord-style overlay) */}
-      <div className="absolute top-0.5 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-slate-900 border border-slate-800 rounded-lg shadow-xl flex items-center divide-x divide-slate-800 z-20 overflow-hidden h-fit select-none">
+      <div className="absolute top-0.5 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-slate-900 border border-slate-800 rounded-lg shadow-xl flex items-center divide-x divide-slate-800 z-20 h-fit select-none">
         <div className="relative">
           <button
             type="button"
             onClick={() => setShowReactionPicker(!showReactionPicker)}
-            className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+            className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer rounded-l-lg"
             title="React"
           >
             <Smile size={13.5} />
@@ -274,7 +274,7 @@ const MessageItem = ({ msg, onReplySelect }) => {
         <button
           type="button"
           onClick={() => onReplySelect(msg)}
-          className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+          className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer rounded-r-lg"
           title="Reply"
         >
           <Reply size={13.5} />

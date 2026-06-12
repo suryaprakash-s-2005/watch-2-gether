@@ -10,6 +10,7 @@ import Profile from './pages/Profile';
 import Friends from './pages/Friends';
 import TopFriends from './pages/TopFriends';
 import Analytics from './pages/Analytics';
+import Layout from './components/Layout';
 
 function App() {
   const { token, getMe } = useAuthStore();
@@ -31,69 +32,71 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        {}
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        
-        {}
-        <Route 
-          path="/dashboard" 
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } 
-        />
-        
-        <Route 
-          path="/room/:roomCode" 
-          element={
-            <ProtectedRoute>
-              <Room />
-            </ProtectedRoute>
-          } 
-        />
+      <Layout>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          
+          {/* Protected Routes */}
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/room/:roomCode" 
+            element={
+              <ProtectedRoute>
+                <Room />
+              </ProtectedRoute>
+            } 
+          />
 
-        <Route 
-          path="/profile/:username" 
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          } 
-        />
+          <Route 
+            path="/profile/:username" 
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } 
+          />
 
-        <Route 
-          path="/friends" 
-          element={
-            <ProtectedRoute>
-              <Friends />
-            </ProtectedRoute>
-          } 
-        />
+          <Route 
+            path="/friends" 
+            element={
+              <ProtectedRoute>
+                <Friends />
+              </ProtectedRoute>
+            } 
+          />
 
-        <Route 
-          path="/friends/top" 
-          element={
-            <ProtectedRoute>
-              <TopFriends />
-            </ProtectedRoute>
-          } 
-        />
+          <Route 
+            path="/friends/top" 
+            element={
+              <ProtectedRoute>
+                <TopFriends />
+              </ProtectedRoute>
+            } 
+          />
 
-        <Route 
-          path="/analytics" 
-          element={
-            <ProtectedRoute>
-              <Analytics />
-            </ProtectedRoute>
-          } 
-        />
+          <Route 
+            path="/analytics" 
+            element={
+              <ProtectedRoute>
+                <Analytics />
+              </ProtectedRoute>
+            } 
+          />
 
-        {}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Layout>
     </BrowserRouter>
   );
 }

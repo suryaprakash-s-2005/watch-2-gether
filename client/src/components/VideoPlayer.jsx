@@ -1,312 +1,102 @@
-import { useEffect, useRef, useState, Suspense } from 'react';
-import ReactPlayer from 'react-player';
+import { useEffect, useRef } from 'react';
 import useRoomStore from '../store/roomStore';
 import useAuthStore from '../store/authStore';
-import useSocketStore from '../store/socketStore';
+import useGlobalPlayer from '../hooks/useGlobalPlayer';
 import { Tv } from 'lucide-react';
 
-
-
-
-const MATCH_URL_YOUTUBE = /(?:youtu\.be\/|youtube(?:-nocookie|education)?\.com\/(?:embed\/|v\/|watch\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))((\w|-){11})|youtube\.com\/playlist\?list=|youtube\.com\/user\//;
-
-const isYoutubeUrl = (url) => {
-  return url ? MATCH_URL_YOUTUBE.test(url) : false;
-};
-
-
-
-const PLAYER_CONFIG = {
-  youtube: {
-    playerVars: {
-      autoplay: 0,
-      modestbranding: 1,
-      rel: 0,
-      showinfo: 0,
-      iv_load_policy: 3,
-      cc_load_policy: 1,
-      enablejsapi: 1,
-      origin: typeof window !== 'undefined' ? window.location.origin : '',
-    },
-  },
-};
-
 const VideoPlayer = () => {
-  const { currentRoom, playbackCommand, setPlaybackCommand, updateRoomPlayback } = useRoomStore();
+  const { currentRoom, setPlaybackCommand } = useRoomStore();
   const { user } = useAuthStore();
-  const { emitVideoPlay, emitVideoPause, emitVideoSeek, emitVideoSync } = useSocketStore();
+  const { isSynced, setIsSynced, setIsPlaying, setSlotRect } = useGlobalPlayer();
 
-  const playerRef = useRef(null);
-  const localVersionRef = useRef(0);
-  
-  
-  
-  
-  
+  const containerRef = useRef(null);
   const hasSyncedInitial = useRef(false);
 
-  
-  
-  const suppressUntil = useRef(0);
-
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [isSynced, setIsSynced] = useState(true);
-
   const isHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
-  const hasControl = isHost || currentRoom?.guestControlEnabled;
   const videoUrl = currentRoom?.currentVideo
     ? `https://www.youtube.com/watch?v=${currentRoom.currentVideo}`
     : null;
 
-  const isValidYoutube = videoUrl && isYoutubeUrl(videoUrl);
-
-  // When a guest enters/reloads and the video is already playing, we need them to manually sync/activate playback.
   useEffect(() => {
     if (currentRoom) {
       if (!currentRoom.isPlaying) {
         setIsSynced(true);
+        hasSyncedInitial.current = true;
       } else if (!isHost && isSynced && !hasSyncedInitial.current) {
         setIsSynced(false);
       }
     }
-  }, [currentRoom?.currentVideo, currentRoom?.isPlaying, isHost]);
+  }, [currentRoom, isHost, isSynced, setIsSynced]);
+
+  // Reset sync check on video URL change
+  useEffect(() => {
+    hasSyncedInitial.current = false;
+  }, [videoUrl]);
+
+  // Track position and size of the placeholder slot
+  useEffect(() => {
+    const updateRect = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setSlotRect({
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        });
+      }
+    };
+
+    updateRect();
+
+    window.addEventListener('resize', updateRect);
+    window.addEventListener('scroll', updateRect, { passive: true });
+
+    // Track layout changes (e.g. sidebar toggle)
+    const resizeObserver = new ResizeObserver(() => {
+      updateRect();
+    });
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    // Animation frame loop to track layout transitions smoothly
+    let animationId;
+    const loop = () => {
+      updateRect();
+      animationId = requestAnimationFrame(loop);
+    };
+    animationId = requestAnimationFrame(loop);
+
+    return () => {
+      window.removeEventListener('resize', updateRect);
+      window.removeEventListener('scroll', updateRect);
+      resizeObserver.disconnect();
+      cancelAnimationFrame(animationId);
+      setSlotRect(null); // Clear coordinates on unmount
+    };
+  }, [setSlotRect, videoUrl]);
 
   const handleSyncClick = () => {
     setIsSynced(true);
     hasSyncedInitial.current = true;
-    if (currentRoom) {
-      suppress(2000);
-      setIsPlaying(true);
-      seekTo(currentRoom.currentTime);
-    }
-  };
-
-  const getCurrentTime = () => {
-    if (!playerRef.current) return 0;
-    if (typeof playerRef.current.getCurrentTime === 'function') {
-      return playerRef.current.getCurrentTime();
-    }
-    return playerRef.current.currentTime || 0;
-  };
-
-  const suppress = (ms = 1200) => {
-    suppressUntil.current = Date.now() + ms;
-  };
-
-  const isSuppressed = () => Date.now() < suppressUntil.current;
-
-  const seekTo = (time) => {
-    if (!playerRef.current) return;
-    if (typeof playerRef.current.seekTo === 'function') {
-      playerRef.current.seekTo(time, 'seconds');
-    } else {
-      playerRef.current.currentTime = time;
-    }
-  };
-
-  const onPlayerReady = () => {
-    setReady(true);
-    if (hasSyncedInitial.current) {
-      return; 
-    }
-    if (currentRoom?.currentVideo) {
-      hasSyncedInitial.current = true;
-      suppress(2000); 
-      if (isHost || !currentRoom.isPlaying) {
-        setIsPlaying(currentRoom.isPlaying);
-      } else {
-        setIsPlaying(false);
-      }
-      seekTo(currentRoom.currentTime);
-    }
-  };
-
-  
-  useEffect(() => {
-    if (!isValidYoutube || !playbackCommand || !ready) return;
-
-    const { type, time, isPlaying: shouldPlay, syncVersion } = playbackCommand;
-
-    
-    if (syncVersion !== undefined && syncVersion < localVersionRef.current) {
-      setPlaybackCommand(null);
-      return;
-    }
-    if (syncVersion !== undefined) {
-      localVersionRef.current = syncVersion;
-    }
-
-    if (type === 'play') {
-      suppress(1200);
-      setIsPlaying(true);
-      seekTo(time);
-      updateRoomPlayback({ isPlaying: true, currentTime: time });
-
-    } else if (type === 'pause') {
-      suppress(1200);
-      setIsPlaying(false);
-      seekTo(time);
-      updateRoomPlayback({ isPlaying: false, currentTime: time });
-
-    } else if (type === 'seek') {
-      suppress(1200);
-      seekTo(time);
-      updateRoomPlayback({ currentTime: time });
-
-    } else if (type === 'sync') {
-      suppress(1500);
-      setIsPlaying(shouldPlay);
-      seekTo(time);
-      updateRoomPlayback({ isPlaying: shouldPlay, currentTime: time });
-
-    } else if (type === 'drift-sync') {
-      const localTime = getCurrentTime();
-      const drift = Math.abs(localTime - time);
-      if (!isPlaying || drift > 1.0) {
-        suppress(1200);
-        setIsPlaying(true);
-        seekTo(time);
-        updateRoomPlayback({ isPlaying: true, currentTime: time });
-      }
-      
-    }
-
-    setPlaybackCommand(null);
-  }, [playbackCommand, isValidYoutube, ready, setPlaybackCommand, updateRoomPlayback]);
-
-  
-
-  const handlePlay = () => {
-    if (isSuppressed()) return; 
-    if (!hasControl) return;
-    const currentTime = getCurrentTime();
-    
-    
     setIsPlaying(true);
-    updateRoomPlayback({ isPlaying: true, currentTime });
-    
-    emitVideoPlay(currentTime);
-    suppress(1200);
-  };
-
-  const handlePause = () => {
-    if (isSuppressed()) return; 
-    if (!hasControl) return;
-    
-    // Ignore pause events triggered by browser auto-suspending video when backgrounded/screen locked
-    if (typeof document !== 'undefined' && document.hidden) {
-      console.log('Ignoring background auto-pause');
-      return;
+    if (currentRoom) {
+      setPlaybackCommand({
+        type: 'sync',
+        time: currentRoom.currentTime || 0,
+        isPlaying: true,
+      });
     }
-
-    const currentTime = getCurrentTime();
-    setIsPlaying(false);
-    updateRoomPlayback({ isPlaying: false, currentTime });
-    
-    emitVideoPause(currentTime);
-    suppress(1200);
   };
-
-  const handleSeek = (seconds) => {
-    if (isSuppressed()) return; 
-    if (!hasControl) return;
-    
-    updateRoomPlayback({ currentTime: seconds });
-    emitVideoSeek(seconds);
-    suppress(1200);
-  };
-
-  
-  useEffect(() => {
-    setReady(false);
-    setIsPlaying(false);
-    suppressUntil.current = 0;
-    hasSyncedInitial.current = false;
-  }, [videoUrl]);
-
-  // Host periodic sync emission
-  useEffect(() => {
-    if (!isHost || !isValidYoutube || !ready || !isPlaying) return;
-
-    const interval = setInterval(() => {
-      const time = getCurrentTime();
-      if (time > 0) {
-        emitVideoSync(time);
-      }
-    }, 4000); // sync every 4 seconds
-
-    return () => clearInterval(interval);
-  }, [isHost, isValidYoutube, ready, isPlaying, emitVideoSync]);
-
-  // Handle page visibility change (automatically resume and sync playback when returning to foreground)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (typeof document === 'undefined') return;
-      
-      if (!document.hidden && currentRoom?.isPlaying && isSynced) {
-        console.log('App returned to foreground, resuming playback...');
-        suppress(2000);
-        setIsPlaying(true);
-        seekTo(currentRoom.currentTime);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [currentRoom?.isPlaying, currentRoom?.currentTime, isSynced]);
 
   return (
-    <div className="relative aspect-video w-full rounded-3xl overflow-hidden bg-slate-950 border border-slate-800/80 shadow-2xl">
-      {isValidYoutube ? (
-        <div className="w-full h-full relative">
-          <Suspense fallback={
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-950">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-youtube-red mb-3"></div>
-              <p className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Initializing Player...</p>
-            </div>
-          }>
-            <ReactPlayer
-              key={currentRoom?.currentVideo || 'empty'}
-              ref={playerRef}
-              src={videoUrl}
-              width="100%"
-              height="100%"
-              playing={isSynced && isPlaying}
-              controls={hasControl}
-              onReady={onPlayerReady}
-              onPlay={handlePlay}
-              onPause={handlePause}
-              onSeek={handleSeek}
-              config={PLAYER_CONFIG}
-            />
-          </Suspense>
-          {!hasControl && (
-            <div
-              className="absolute inset-0 bg-transparent cursor-not-allowed"
-              style={{ pointerEvents: 'auto' }}
-              title="Controls locked. Only the Host can control video playback."
-            />
-          )}
-          {!isSynced && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm z-30 p-4 text-center">
-              <div className="p-4 bg-youtube-red/10 border border-youtube-red/20 rounded-full text-youtube-red mb-4 animate-bounce">
-                <Tv className="w-8 h-8" />
-              </div>
-              <h3 className="text-lg font-bold text-white mb-2">Watch Party is Active</h3>
-              <p className="text-xs text-slate-400 max-w-xs mb-6">
-                The host is streaming a video. Click below to synchronize your playback and audio.
-              </p>
-              <button
-                onClick={handleSyncClick}
-                className="bg-youtube-red hover:bg-youtube-hover text-white font-bold text-sm px-6 py-3 rounded-2xl shadow-lg shadow-youtube-red/20 transition-all duration-200 active:scale-95 cursor-pointer"
-              >
-                Join & Sync Stream
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
+    <div
+      ref={containerRef}
+      className="relative aspect-video w-full rounded-3xl overflow-hidden bg-slate-950 border border-slate-800/80 shadow-2xl"
+    >
+      {!videoUrl ? (
+        // No Video Playing Screen
         <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 gap-2 sm:gap-4 p-4 sm:p-8 text-center bg-slate-900/40 overflow-hidden">
           <div className="p-3 sm:p-5 bg-slate-800/40 rounded-full border border-slate-700/50 text-slate-400 animate-pulse flex items-center justify-center">
             <Tv className="w-6 h-6 sm:w-11 sm:h-11" />
@@ -321,6 +111,29 @@ const VideoPlayer = () => {
                 : "Waiting for the Host to start a YouTube stream. Hang tight!"}
             </p>
           </div>
+        </div>
+      ) : !isSynced ? (
+        // Join & Sync overlay screen
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm z-30 p-4 text-center">
+          <div className="p-4 bg-youtube-red/10 border border-youtube-red/20 rounded-full text-youtube-red mb-4 animate-bounce">
+            <Tv className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-bold text-white mb-2">Watch Party is Active</h3>
+          <p className="text-xs text-slate-400 max-w-xs mb-6">
+            The host is streaming a video. Click below to synchronize your playback and audio.
+          </p>
+          <button
+            onClick={handleSyncClick}
+            className="bg-youtube-red hover:bg-youtube-hover text-white font-bold text-sm px-6 py-3 rounded-2xl shadow-lg shadow-youtube-red/20 transition-all duration-200 active:scale-95 cursor-pointer"
+          >
+            Join & Sync Stream
+          </button>
+        </div>
+      ) : (
+        // Empty slot showing loading spinner while the Global player overlays on top
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-950">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-youtube-red mb-3"></div>
+          <p className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Synchronizing...</p>
         </div>
       )}
     </div>
