@@ -300,9 +300,9 @@ const GlobalMiniPlayer = () => {
         return;
       }
 
-      // 2. Only recover if playback was genuinely interrupted
-      if (currentRoom?.isPlaying && isSynced) {
-        console.log('App returned to foreground: Playback was interrupted. Recovering state.');
+      // 2. Only recover if playback was genuinely interrupted (Host only, guests are handled via socket syncs)
+      if (isHost && currentRoom?.isPlaying && isSynced) {
+        console.log('App returned to foreground (Host): Playback was interrupted. Recovering state.');
         suppress(2000);
         setIsPlaying(true);
         
@@ -317,7 +317,7 @@ const GlobalMiniPlayer = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [currentRoom?.isPlaying, currentRoom?.currentTime, isSynced, setIsPlaying]);
+  }, [isHost, currentRoom?.isPlaying, currentRoom?.currentTime, isSynced, setIsPlaying]);
 
   // Pointer event resize logic for desktop mini player
   const handleResizePointerDown = (e) => {
