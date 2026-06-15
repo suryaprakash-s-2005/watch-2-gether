@@ -26,7 +26,7 @@ const UserList = () => {
         </h3>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 min-h-[280px] max-h-[350px] md:max-h-[420px] lg:max-h-[500px] xl:max-h-[600px]">
+      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 min-h-0 md:min-h-[280px] max-h-none md:max-h-[420px] lg:max-h-[500px] xl:max-h-[600px]">
         {roomUsers.map((member) => {
           const isUserHost = member.userId && currentRoom?.hostId && String(member.userId) === String(currentRoom.hostId._id || currentRoom.hostId);
           return (

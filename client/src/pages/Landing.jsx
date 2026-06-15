@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import useAuthStore from "../store/authStore";
-import { Play, Users, MessageSquare, ShieldAlert, Sun, Moon } from "lucide-react";
+import { Play, Users, MessageSquare, Sun, Moon } from "lucide-react";
 
 const Landing = () => {
   const { isAuthenticated } = useAuthStore();

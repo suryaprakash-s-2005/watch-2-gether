@@ -46,12 +46,19 @@ const ChatBox = () => {
   // Click outside listener to close emoji picker
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        showEmojiPicker &&
-        emojiButtonRef.current &&
-        !emojiButtonRef.current.contains(event.target)
-      ) {
-        setShowEmojiPicker(false);
+      // 1. If clicked target is the Smile button itself (or its icon), ignore click-outside
+      if (event.target.closest('button[title="Choose emoji"]')) {
+        return;
+      }
+
+      // 2. Check if click originated inside the emoji picker (supporting Shadow DOM via composedPath)
+      if (showEmojiPicker && emojiButtonRef.current) {
+        const path = event.composedPath ? event.composedPath() : [];
+        const clickedInside = emojiButtonRef.current.contains(event.target) || path.includes(emojiButtonRef.current);
+        
+        if (!clickedInside) {
+          setShowEmojiPicker(false);
+        }
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -183,7 +190,7 @@ const ChatBox = () => {
   };
 
   return (
-    <div className="glass-panel rounded-3xl p-4 md:p-5 flex flex-col h-full border border-slate-800/80 relative overflow-hidden">
+    <div className="glass-panel rounded-3xl p-4 md:p-5 flex flex-col h-full border border-slate-800/80 relative">
       {/* Chat Title */}
       <div className="flex items-center gap-2 pb-3.5 mb-3.5 border-b border-slate-800/60 shrink-0">
         <MessageSquare size={17} className="text-youtube-red" />
@@ -191,7 +198,7 @@ const ChatBox = () => {
       </div>
 
       {/* Message List Scrolling Container */}
-      <div className={`flex-1 overflow-y-auto space-y-2 pr-1 mb-2.5 min-h-[280px] max-h-[350px] md:max-h-[420px] lg:max-h-[500px] xl:max-h-[600px] scrollbar-thin ${
+      <div className={`flex-1 overflow-y-auto space-y-2 pr-1 mb-2.5 min-h-0 md:min-h-[280px] max-h-none md:max-h-[420px] lg:max-h-[500px] xl:max-h-[600px] scrollbar-thin ${
         chatMessages.length === 0 ? 'flex flex-col items-center justify-center text-center' : ''
       }`}>
         {chatMessages.length === 0 ? (

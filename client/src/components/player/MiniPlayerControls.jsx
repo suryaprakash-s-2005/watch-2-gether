@@ -48,11 +48,10 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
 
   if (layout === 'mobile') {
     return (
-      <div className="w-full h-full flex items-center justify-between px-3 gap-3 relative">
+      <div className="w-full h-full flex items-center justify-between px-3 gap-3 relative select-none">
         {/* Left Video Thumbnail */}
         <div 
-          onClick={expand}
-          className="w-14 h-9 rounded bg-slate-800 flex-shrink-0 overflow-hidden border border-slate-700 relative cursor-pointer"
+          className="w-14 h-9 rounded bg-slate-800 flex-shrink-0 overflow-hidden border border-slate-700 relative"
         >
           {thumbnailUrl ? (
             <img src={thumbnailUrl} alt="Video thumbnail" className="w-full h-full object-cover" />
@@ -65,8 +64,7 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
 
         {/* Title / Description */}
         <div 
-          onClick={expand}
-          className="flex-1 min-w-0 text-left cursor-pointer"
+          className="flex-1 min-w-0 text-left"
         >
           <h4 className="text-xs font-bold text-white truncate">{videoTitle}</h4>
           <p className="text-[10px] text-slate-400 font-semibold truncate">Watch-2-Gether Party</p>

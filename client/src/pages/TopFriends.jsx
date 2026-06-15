@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import useFriendStore from '../store/friendStore';
 import Navbar from '../components/Navbar';
 import { 
-  Trophy, Medal, ArrowLeft, Users, Clock, Award
+  Trophy, ArrowLeft, Users, Clock, Award
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 

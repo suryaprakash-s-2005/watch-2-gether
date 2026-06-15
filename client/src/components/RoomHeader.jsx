@@ -2,9 +2,9 @@ import { useState } from 'react';
 import useRoomStore from '../store/roomStore';
 import useAuthStore from '../store/authStore';
 import useSocketStore from '../store/socketStore';
-import { Copy, Check, Tv, ExternalLink } from 'lucide-react';
+import { Copy, Check, Tv } from 'lucide-react';
 
-const RoomHeader = () => {
+const RoomHeader = ({ isModal = false, onClose = null }) => {
   const { currentRoom, roomUsers } = useRoomStore();
   const { user } = useAuthStore();
   const { emitVideoChange, emitAddToQueue } = useSocketStore();
@@ -31,8 +31,8 @@ const RoomHeader = () => {
     if (url.length === 11) return url;
     
     const patterns = [
-      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i,
-      /youtube\.com\/shorts\/([^"&?\/ ]{11})/i
+      /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/ ]{11})/i,
+      /youtube\.com\/shorts\/([^"&?/ ]{11})/i
     ];
 
     for (const pattern of patterns) {
@@ -94,9 +94,69 @@ const RoomHeader = () => {
     setVideoUrl('');
   };
 
+  if (isModal) {
+    return (
+      <div className="w-full">
+        <form onSubmit={isHost ? handleLoadVideo : handleAddToQueue} className="flex flex-col gap-3.5 w-full">
+          <div className="flex flex-col gap-3 w-full">
+            <input
+              type="text"
+              value={videoUrl}
+              onChange={(e) => {
+                setVideoUrl(e.target.value);
+                setInputError('');
+              }}
+              placeholder={isHost ? "Paste YouTube Link or Video ID" : "Suggest YouTube Link or Video ID"}
+              className="glass-input px-4 py-3.5 rounded-2xl text-xs focus:ring-2 focus:ring-youtube-red w-full"
+            />
+            {isHost ? (
+              <div className="flex gap-2 w-full">
+                <button
+                  type="submit"
+                  onClick={(e) => {
+                    handleLoadVideo(e);
+                    if (videoUrl.trim() && onClose) onClose();
+                  }}
+                  className="flex-1 justify-center bg-youtube-red hover:bg-youtube-hover text-white font-bold text-xs py-3 rounded-xl transition shadow-lg shadow-youtube-red/20 flex items-center justify-center gap-2"
+                >
+                  <Tv size={14} />
+                  Play Now
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    handleAddToQueue(e);
+                    if (videoUrl.trim() && onClose) onClose();
+                  }}
+                  className="flex-1 justify-center bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/60 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-2"
+                >
+                  Queue
+                </button>
+              </div>
+            ) : (
+              <button
+                type="submit"
+                onClick={(e) => {
+                  handleAddToQueue(e);
+                  if (videoUrl.trim() && onClose) onClose();
+                }}
+                className="w-full justify-center bg-youtube-red hover:bg-youtube-hover text-white font-bold text-xs py-3 rounded-xl transition shadow-lg shadow-youtube-red/20 flex items-center justify-center gap-2"
+              >
+                Request Video
+              </button>
+            )}
+          </div>
+          {inputError && (
+            <p className="text-xs text-youtube-red font-medium pl-1">{inputError}</p>
+          )}
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="glass-panel rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
-      {}
+      {/* Left side */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-extrabold text-white tracking-tight">
@@ -118,7 +178,7 @@ const RoomHeader = () => {
         </p>
       </div>
 
-      {}
+      {/* Right side */}
       <div className="flex-1 max-w-xl w-full">
         <form onSubmit={isHost ? handleLoadVideo : handleAddToQueue} className="flex flex-col gap-1.5 w-full">
           <div className="flex flex-col sm:flex-row gap-2 w-full">

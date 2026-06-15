@@ -7,12 +7,26 @@ import {
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  PieChart, Pie, Cell
 } from 'recharts';
-import { motion } from 'framer-motion';
 
 
 const PIE_COLORS = ['#EF4444', '#38BDF8', '#8B5CF6', '#10B981', '#F59E0B', '#EC4899', '#64748B'];
+
+const CustomTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-950/95 border border-slate-800 p-3 rounded-xl shadow-xl text-xs font-semibold text-white">
+        <p className="text-slate-400 font-normal mb-1">{payload[0].payload.label}</p>
+        <p className="flex items-center gap-1.5 font-bold text-youtube-red">
+          <Clock size={11} fill="currentColor" />
+          {payload[0].value} hours
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
 
 const Analytics = () => {
   const { stats, summary, isLoading, fetchStats, fetchSummary } = useAnalyticsStore();
@@ -28,22 +42,6 @@ const Analytics = () => {
 
   const handleTimeframeChange = (frame) => {
     setTimeframe(frame);
-  };
-
-  
-  const CustomTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-slate-950/95 border border-slate-800 p-3 rounded-xl shadow-xl text-xs font-semibold text-white">
-          <p className="text-slate-400 font-normal mb-1">{payload[0].payload.label}</p>
-          <p className="flex items-center gap-1.5 font-bold text-youtube-red">
-            <Clock size={11} fill="currentColor" />
-            {payload[0].value} hours
-          </p>
-        </div>
-      );
-    }
-    return null;
   };
 
   if (isLoading) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import useFriendStore from '../store/friendStore';
@@ -51,6 +51,7 @@ const Profile = () => {
   const [selectedFriend, setSelectedFriend] = useState(null);
   const bubbleContainerRef = useRef(null);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -60,7 +61,8 @@ const Profile = () => {
 
   const isOwnProfile = currentUser && profileUser && currentUser._id.toString() === profileUser._id.toString();
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
+    await Promise.resolve();
     setLoading(true);
     setError('');
     setSelectedFriend(null); // Reset selected friend when changing profiles
@@ -75,11 +77,13 @@ const Profile = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [username]);
 
   useEffect(() => {
-    fetchProfile();
-  }, [username, currentUser]);
+    Promise.resolve().then(() => {
+      fetchProfile();
+    });
+  }, [fetchProfile, currentUser]);
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -147,7 +151,7 @@ const Profile = () => {
 
   const isOnline = (lastSeenDate) => {
     if (!lastSeenDate) return false;
-    const diff = Date.now() - new Date(lastSeenDate).getTime();
+    const diff = now - new Date(lastSeenDate).getTime();
     return diff < 5 * 60 * 1000; 
   };
 
@@ -155,7 +159,7 @@ const Profile = () => {
     if (!lastSeenDate) return 'Never';
     if (isOnline(lastSeenDate)) return 'Online now';
     
-    const diff = Date.now() - new Date(lastSeenDate).getTime();
+    const diff = now - new Date(lastSeenDate).getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 60) return `${mins} minute${mins !== 1 ? 's' : ''} ago`;
     

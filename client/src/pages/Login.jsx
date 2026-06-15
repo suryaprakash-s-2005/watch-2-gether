@@ -10,7 +10,11 @@ const Login = () => {
 
   const [nickname, setNickname] = useState('');
   const [guestLoading, setGuestLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState(() => {
+    return searchParams.get('error') === 'auth_failed'
+      ? 'Google Sign-In authentication failed. Please try again.'
+      : '';
+  });
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
   const toggleTheme = () => {
@@ -36,13 +40,7 @@ const Login = () => {
     }
   }, [searchParams, isAuthenticated, setToken, navigate]);
 
-  
-  useEffect(() => {
-    const urlError = searchParams.get('error');
-    if (urlError === 'auth_failed') {
-      setErrorMessage('Google Sign-In authentication failed. Please try again.');
-    }
-  }, [searchParams]);
+
 
   const handleGoogleLogin = () => {
     const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';

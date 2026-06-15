@@ -5,14 +5,14 @@ import api from '../services/api';
 import Navbar from '../components/Navbar';
 import { 
   Users, UserPlus, Send, Check, X, 
-  Trash2, TrendingUp, Sparkles, MessageCircle, Info, Clock
+  Trash2, TrendingUp, Sparkles, MessageCircle, Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Friends = () => {
   const navigate = useNavigate();
   const { 
-    friends, pendingIncoming, pendingOutgoing, suggestions, isLoading, error,
+    friends, pendingIncoming, pendingOutgoing, suggestions, isLoading,
     fetchFriends, sendRequest, acceptRequest, rejectRequest, removeFriend, fetchSuggestions 
   } = useFriendStore();
 
@@ -25,6 +25,7 @@ const Friends = () => {
   const [selectedFriend, setSelectedFriend] = useState(null);
   const bubbleContainerRef = useRef(null);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -100,7 +101,7 @@ const Friends = () => {
   
   const formatLastSeen = (dateStr) => {
     if (!dateStr) return 'Never';
-    const diff = Date.now() - new Date(dateStr).getTime();
+    const diff = now - new Date(dateStr).getTime();
     if (diff < 5 * 60 * 1000) return 'Online';
     const mins = Math.floor(diff / 60000);
     if (mins < 60) return `${mins}m ago`;

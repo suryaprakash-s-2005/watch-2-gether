@@ -13,6 +13,7 @@ const usePlayerStore = create((set) => ({
   mediaType: 'youtube',
   slotRect: null,
   isSynced: true,
+  hasSyncedInitial: false,
 
   setRoomId: (roomId) => set({ roomId }),
   setCurrentVideoId: (currentVideoId) => set({ currentVideoId, isClosed: !currentVideoId }),
@@ -25,6 +26,7 @@ const usePlayerStore = create((set) => ({
   setIsClosed: (isClosed) => set({ isClosed }),
   setSlotRect: (slotRect) => set({ slotRect }),
   setIsSynced: (isSynced) => set({ isSynced }),
+  setHasSyncedInitial: (value) => set({ hasSyncedInitial: value }),
 
   initPlayer: (roomId, videoId) => {
     set({
@@ -33,6 +35,7 @@ const usePlayerStore = create((set) => ({
       isClosed: !videoId,
       isMiniPlayer: false,
       isSynced: true, // Default to synced, will be adjusted by visibility / room checks
+      hasSyncedInitial: false,
     });
   },
 
@@ -46,6 +49,7 @@ const usePlayerStore = create((set) => ({
       isClosed: true,
       slotRect: null,
       isSynced: true,
+      hasSyncedInitial: false,
     });
   },
 }));

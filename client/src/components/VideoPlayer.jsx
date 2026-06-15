@@ -7,10 +7,9 @@ import { Tv } from 'lucide-react';
 const VideoPlayer = () => {
   const { currentRoom, setPlaybackCommand } = useRoomStore();
   const { user } = useAuthStore();
-  const { isSynced, setIsSynced, setIsPlaying, setSlotRect } = useGlobalPlayer();
+  const { isSynced, setIsSynced, setIsPlaying, setSlotRect, currentTime, hasSyncedInitial, setHasSyncedInitial } = useGlobalPlayer();
 
   const containerRef = useRef(null);
-  const hasSyncedInitial = useRef(false);
 
   const isHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
   const videoUrl = currentRoom?.currentVideo
@@ -21,17 +20,12 @@ const VideoPlayer = () => {
     if (currentRoom) {
       if (!currentRoom.isPlaying) {
         setIsSynced(true);
-        hasSyncedInitial.current = true;
-      } else if (!isHost && isSynced && !hasSyncedInitial.current) {
+        setHasSyncedInitial(true);
+      } else if (!isHost && !hasSyncedInitial) {
         setIsSynced(false);
       }
     }
-  }, [currentRoom, isHost, isSynced, setIsSynced]);
-
-  // Reset sync check on video URL change
-  useEffect(() => {
-    hasSyncedInitial.current = false;
-  }, [videoUrl]);
+  }, [currentRoom, isHost, hasSyncedInitial, setIsSynced, setHasSyncedInitial]);
 
   // Track position and size of the placeholder slot
   useEffect(() => {
@@ -81,12 +75,13 @@ const VideoPlayer = () => {
 
   const handleSyncClick = () => {
     setIsSynced(true);
-    hasSyncedInitial.current = true;
+    setHasSyncedInitial(true);
     setIsPlaying(true);
     if (currentRoom) {
+      const syncTime = currentTime > 0 ? currentTime : (currentRoom.currentTime || 0);
       setPlaybackCommand({
         type: 'sync',
-        time: currentRoom.currentTime || 0,
+        time: syncTime,
         isPlaying: true,
       });
     }

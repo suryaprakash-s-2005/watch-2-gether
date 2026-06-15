@@ -11,19 +11,42 @@ import UserList from '../components/UserList';
 import QueueList from '../components/QueueList';
 import ChatBox from '../components/ChatBox';
 import usePlayerStore from '../store/playerStore';
-import { ArrowLeft, RefreshCw, Tv, MessageSquare, ListVideo, Users, LogOut } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Tv, MessageSquare, ListVideo, Users, LogOut, Copy, Check, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Room = () => {
   const { roomCode } = useParams();
   const navigate = useNavigate();
 
-  const { token } = useAuthStore();
+  const { token, user: currentUser } = useAuthStore();
   const { currentRoom, roomLoading, roomError, getRoomDetails, clearRoomState } = useRoomStore();
   const { connectSocket, disconnectSocket } = useSocketStore();
   const { unreadCount, mentionCount, setChatActive } = useChatStore();
 
   const [activeTab, setActiveTab] = useState('chat');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  const [isHeaderOpen, setIsHeaderOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth < 768;
+  const isHost = currentRoom?.hostId && currentUser?._id && String(currentRoom.hostId._id || currentRoom.hostId) === String(currentUser._id);
+
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(currentRoom.roomCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Could not copy room code', err);
+    }
+  };
 
   // Synchronize chat active state in store
   useEffect(() => {
@@ -33,6 +56,7 @@ const Room = () => {
 
   useEffect(() => {
     if (!roomCode) return;
+    let active = true;
 
     // Teardown previous room state and socket if joining a different room
     const activeRoomCode = usePlayerStore.getState().roomId;
@@ -43,13 +67,18 @@ const Room = () => {
     }
 
     getRoomDetails(roomCode).then((room) => {
+      if (!active) return;
       if (room && token) {
         connectSocket(token, roomCode.toUpperCase());
-        usePlayerStore.getState().initPlayer(roomCode.toUpperCase(), room.currentVideo);
+        const currentVideoId = usePlayerStore.getState().currentVideoId;
+        if (room.currentVideo !== currentVideoId) {
+          usePlayerStore.getState().initPlayer(roomCode.toUpperCase(), room.currentVideo);
+        }
       }
     });
 
     return () => {
+      active = false;
       // Preserve socket connection if global player is active and playing
       const playerState = usePlayerStore.getState();
       if (playerState.isClosed) {
@@ -98,50 +127,91 @@ const Room = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col overflow-x-hidden">
       <Navbar />
 
-      <main className="flex-1 p-4 sm:p-6 max-w-7xl mx-auto w-full flex flex-col gap-6">
-        {/* Room Header (Code Copy & Video Pasting URL controls) */}
-        <RoomHeader />
+      <main className="flex-1 p-3 md:p-6 max-w-7xl mx-auto w-full flex flex-col gap-3 md:gap-6 min-h-0 h-[calc(100dvh-72px)] md:h-auto overflow-hidden md:overflow-visible">
+        {/* On desktop: standard RoomHeader. On mobile: hidden */}
+        {!isMobile && <RoomHeader />}
 
-        {/* Toolbar with Room Title and Actions */}
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Tv className="text-youtube-red" size={20} />
-            Watch Party
-          </h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="hidden md:flex items-center gap-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/60 py-1.5 px-3.5 rounded-xl text-xs font-bold transition shadow hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-            >
-              {isSidebarOpen ? 'Cinema Mode (Hide Chat)' : 'Show Sidebar (Chat & Queue)'}
-            </button>
-            <button
-              onClick={() => {
-                usePlayerStore.getState().resetPlayer();
-                disconnectSocket();
-                clearRoomState();
-                navigate('/dashboard');
-              }}
-              className="flex items-center gap-1.5 bg-youtube-red hover:bg-youtube-hover text-white py-1.5 px-3.5 rounded-xl text-xs font-bold transition shadow hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-            >
-              <LogOut size={13} />
-              <span>Exit Party</span>
-            </button>
+        {/* On mobile: compact invitation code & stream actions bar */}
+        {isMobile && (
+          <div className="flex items-center justify-between gap-3 p-3 bg-slate-950/45 border border-slate-800/80 rounded-2xl shrink-0 font-sans shadow-inner">
+            <div className="flex items-center gap-1.5 bg-slate-800 border border-slate-750/70 px-2.5 py-1.5 rounded-xl font-mono text-xs font-bold text-youtube-red">
+              <span>{currentRoom.roomCode}</span>
+              <button
+                onClick={handleCopyCode}
+                className="text-slate-400 hover:text-white transition-colors duration-150 p-0.5 cursor-pointer"
+                title="Copy Room Code"
+              >
+                {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setIsHeaderOpen(true)}
+                className="flex items-center gap-1 bg-youtube-red hover:bg-youtube-hover text-white text-[11px] font-bold py-1.5 px-3 rounded-xl transition cursor-pointer shadow-md shadow-youtube-red/10"
+              >
+                <Tv size={11.5} />
+                <span>{isHost ? 'Stream' : 'Request'}</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  usePlayerStore.getState().resetPlayer();
+                  disconnectSocket();
+                  clearRoomState();
+                  navigate('/dashboard');
+                }}
+                className="flex items-center justify-center p-2 bg-slate-850 hover:bg-slate-800 text-slate-300 rounded-xl transition border border-slate-800 cursor-pointer w-7.5 h-7.5"
+                title="Exit Party"
+              >
+                <LogOut size={11.5} />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Responsive Layout Grid */}
-        <div className="flex flex-col md:flex-row gap-6 items-stretch w-full">
+        {/* Toolbar with Room Title and Actions (Desktop only) */}
+        {!isMobile && (
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Tv className="text-youtube-red" size={20} />
+              Watch Party
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="hidden md:flex items-center gap-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/60 py-1.5 px-3.5 rounded-xl text-xs font-bold transition shadow hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+              >
+                {isSidebarOpen ? 'Cinema Mode (Hide Chat)' : 'Show Sidebar (Chat & Queue)'}
+              </button>
+              <button
+                onClick={() => {
+                  usePlayerStore.getState().resetPlayer();
+                  disconnectSocket();
+                  clearRoomState();
+                  navigate('/dashboard');
+                }}
+                className="flex items-center gap-1.5 bg-youtube-red hover:bg-youtube-hover text-white py-1.5 px-3.5 rounded-xl text-xs font-bold transition shadow hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+              >
+                <LogOut size={13} />
+                <span>Exit Party</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Layout Grid (flows vertically on mobile, horizontally on desktop) */}
+        <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch w-full flex-1 min-h-0">
           {/* Left Panel: Video Player */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-shrink-0 md:flex-1 min-w-0">
             <VideoPlayer />
           </div>
 
           {/* Right Panel / Sidebar (Tabbed widget visible on mobile, or on desktop when open) */}
-          <div className={`w-full md:w-[320px] lg:w-[380px] shrink-0 flex flex-col gap-4 ${
+          <div className={`w-full md:w-[320px] lg:w-[380px] shrink-0 flex-1 md:flex-initial flex flex-col gap-3 min-h-0 ${
             !isSidebarOpen ? 'md:hidden' : ''
           }`}>
             {/* Tab Bar Selector */}
@@ -199,6 +269,52 @@ const Room = () => {
           </div>
         </div>
       </main>
+
+      {/* Mobile Stream Controller Drawer Modal */}
+      <AnimatePresence>
+        {isMobile && isHeaderOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsHeaderOpen(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            {/* Content Drawer Card */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 250 }}
+              className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl relative z-10 pointer-events-auto"
+            >
+              {/* Drag Handle Bar */}
+              <div 
+                className="w-12 h-1 bg-slate-800 rounded-full mx-auto mb-4 cursor-pointer sm:hidden" 
+                onClick={() => setIsHeaderOpen(false)} 
+              />
+              
+              <div className="flex justify-between items-center mb-4 border-b border-slate-800/60 pb-3 select-none">
+                <h3 className="font-bold text-white text-sm">
+                  {isHost ? 'Stream Controls' : 'Suggest a Video'}
+                </h3>
+                <button 
+                  onClick={() => setIsHeaderOpen(false)}
+                  className="text-slate-400 hover:text-white p-1 cursor-pointer"
+                  title="Close Controls"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Render RoomHeader inside */}
+              <RoomHeader isModal={true} onClose={() => setIsHeaderOpen(false)} />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

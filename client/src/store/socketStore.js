@@ -9,7 +9,7 @@ const useSocketStore = create((set, get) => ({
   isConnecting: false,
 
   connectSocket: (token, roomCode) => {
-    if (get().socket) return;
+    if (get().socket || get().isConnecting) return;
 
     set({ isConnecting: true });
     const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
@@ -23,11 +23,19 @@ const useSocketStore = create((set, get) => ({
       transports: ['polling', 'websocket'],
     });
 
+    // Set socket instance synchronously to prevent concurrent calls from connecting again
+    set({ socket: socketInstance });
+
     socketInstance.on('connect', () => {
-      set({ socket: socketInstance, isConnecting: false });
-      
-      
+      set({ isConnecting: false });
       socketInstance.emit('join-room', { roomCode });
+    });
+
+    socketInstance.on('connect_error', (err) => {
+      console.error('Socket connection error:', err);
+      if (get().socket === socketInstance) {
+        set({ socket: null, isConnecting: false });
+      }
     });
 
     
@@ -199,7 +207,7 @@ const useSocketStore = create((set, get) => ({
       );
     });
 
-    socketInstance.on('mention-notification', (data) => {
+    socketInstance.on('mention-notification', () => {
       const chatStore = useChatStore.getState();
       if (!chatStore.isChatActive) {
         chatStore.incrementMentionCount();
@@ -221,7 +229,9 @@ const useSocketStore = create((set, get) => ({
     });
 
     socketInstance.on('disconnect', () => {
-      set({ socket: null });
+      if (get().socket === socketInstance) {
+        set({ socket: null, isConnecting: false });
+      }
       useChatStore.getState().clearTypingUsers();
     });
   },
@@ -230,7 +240,7 @@ const useSocketStore = create((set, get) => ({
     const { socket } = get();
     if (socket) {
       socket.disconnect();
-      set({ socket: null });
+      set({ socket: null, isConnecting: false });
     }
     useChatStore.getState().clearTypingUsers();
   },

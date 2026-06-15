@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Smile, Reply, CornerUpLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactionPicker from './ReactionPicker';
 import useAuthStore from '../store/authStore';
 import useRoomStore from '../store/roomStore';
 import useSocketStore from '../store/socketStore';
-import useChatStore from '../store/chatStore';
 
 /**
  * Individual Discord-style chat message item.

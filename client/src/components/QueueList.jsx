@@ -35,7 +35,7 @@ const QueueList = () => {
       </div>
 
       {/* Requests list container */}
-      <div className="flex-1 overflow-y-auto space-y-3 pr-1 min-h-[280px] max-h-[350px] md:max-h-[420px] lg:max-h-[500px] xl:max-h-[600px]">
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0 md:min-h-[280px] max-h-none md:max-h-[420px] lg:max-h-[500px] xl:max-h-[600px]">
         {queue.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-500 text-sm gap-2">
             <div className="p-3 bg-slate-800/30 rounded-full text-slate-600">

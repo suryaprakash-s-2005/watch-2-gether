@@ -52,6 +52,7 @@ const GlobalMiniPlayer = () => {
   const { emitVideoPlay, emitVideoPause, emitVideoSeek, emitVideoSync } = useSocketStore();
 
   const playerRef = useRef(null);
+  const dragConstraintsRef = useRef(null);
   const localVersionRef = useRef(0);
   const suppressUntil = useRef(0);
   const [duration, setDuration] = useState(0);
@@ -62,11 +63,12 @@ const GlobalMiniPlayer = () => {
   const [isReady, setIsReady] = useState(false);
   const lastSyncedVideoId = useRef(null);
 
-  // Reset player ready states on video change
-  useEffect(() => {
+  const [prevVideoId, setPrevVideoId] = useState(currentVideoId);
+  if (currentVideoId !== prevVideoId) {
+    setPrevVideoId(currentVideoId);
     setIsReady(false);
     setIsPlaying(false);
-  }, [currentVideoId, setIsPlaying]);
+  }
 
   const onPlayerReady = () => {
     setIsReady(true);
@@ -379,15 +381,14 @@ const GlobalMiniPlayer = () => {
     : isMobile
     ? {
         position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
+        bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+        left: '12px',
+        width: 'calc(100% - 24px)',
         height: '64px',
         zIndex: 50,
-        borderTopWidth: '1px',
-        borderTopColor: 'rgba(51, 65, 85, 0.5)',
-        borderRadius: 0,
+        borderRadius: '1rem',
         overflow: 'hidden',
+        boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)',
       }
     : {
         // Desktop / Tablet floating mini player
@@ -403,20 +404,21 @@ const GlobalMiniPlayer = () => {
       };
 
   return (
-    <motion.div
-      layout
-      drag={isMiniPlayer && !isMobile}
-      dragConstraints={{
-        left: 0,
-        right: window.innerWidth - miniWidth,
-        top: 0,
-        bottom: window.innerHeight - (miniWidth * 9 / 16),
-      }}
-      dragElastic={0.1}
-      dragMomentum={false}
-      style={style}
-      className="bg-slate-950 border border-slate-800/80 pointer-events-auto flex items-center justify-center"
-    >
+    <>
+      {/* Viewport constraints container for dragging the mini player */}
+      <div
+        ref={dragConstraintsRef}
+        className={`fixed ${isMobile ? 'inset-3' : 'inset-6'} pointer-events-none z-40`}
+      />
+      <motion.div
+        layout={!isMobile}
+        drag={isMiniPlayer && !isMobile}
+        dragConstraints={dragConstraintsRef}
+        dragElastic={0.1}
+        dragMomentum={false}
+        style={style}
+        className="bg-slate-950/85 backdrop-blur-md border border-slate-800/80 pointer-events-auto flex items-center justify-center select-none"
+      >
       {/* Resizing grip for Desktop/Tablet */}
       {isMiniPlayer && !isMobile && (
         <div
@@ -432,33 +434,35 @@ const GlobalMiniPlayer = () => {
 
       {/* Actual Player Canvas */}
       <div className="w-full h-full relative">
-        <Suspense fallback={
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-950">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-youtube-red mb-3"></div>
-            <p className="text-xs font-semibold tracking-wider text-slate-450 uppercase">Syncing Player...</p>
-          </div>
-        }>
-          <ReactPlayer
-            ref={playerRef}
-            src={videoUrl}
-            width="100%"
-            height={isMobile && isMiniPlayer ? '0px' : '100%'} // Hide video frame on mobile docked controls
-            playing={isSynced && isPlaying}
-            controls={hasControl && !isMiniPlayer} // Custom controls overlay on mini mode
-            volume={isMuted ? 0 : volume}
-            onReady={onPlayerReady}
-            onPlay={handlePlay}
-            onPause={handlePause}
-            onSeek={handleSeek}
-            onDuration={(d) => setDuration(d)}
-            onProgress={({ playedSeconds }) => {
-              if (isPlaying) {
-                setCurrentTime(playedSeconds);
-              }
-            }}
-            config={PLAYER_CONFIG}
-          />
-        </Suspense>
+        <div className={isMobile && isMiniPlayer ? 'absolute inset-0 opacity-0 pointer-events-none' : 'w-full h-full'}>
+          <Suspense fallback={
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-950">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-youtube-red mb-3"></div>
+              <p className="text-xs font-semibold tracking-wider text-slate-450 uppercase">Syncing Player...</p>
+            </div>
+          }>
+            <ReactPlayer
+              ref={playerRef}
+              src={videoUrl}
+              width="100%"
+              height="100%"
+              playing={isSynced && isPlaying}
+              controls={hasControl && !isMiniPlayer} // Custom controls overlay on mini mode
+              volume={isMuted ? 0 : volume}
+              onReady={onPlayerReady}
+              onPlay={handlePlay}
+              onPause={handlePause}
+              onSeek={handleSeek}
+              onDuration={(d) => setDuration(d)}
+              onProgress={({ playedSeconds }) => {
+                if (isPlaying) {
+                  setCurrentTime(playedSeconds);
+                }
+              }}
+              config={PLAYER_CONFIG}
+            />
+          </Suspense>
+        </div>
 
         {/* Lock controls overlay inside Room page if guest control is off */}
         {isRoomMode && !hasControl && (
@@ -481,6 +485,7 @@ const GlobalMiniPlayer = () => {
         )}
       </div>
     </motion.div>
+  </>
   );
 };
 
