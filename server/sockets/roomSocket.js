@@ -678,7 +678,7 @@ export const roomSocketHandler = (io) => {
           return s && s.user && s.user._id.toString() === room.hostId.toString();
         });
 
-        
+        if (hostSocketId) {
           for (const sid of roomSockets) {
             if (sid === hostSocketId) continue;
             const guestSocket = io.sockets.sockets.get(sid);
