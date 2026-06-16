@@ -32,9 +32,6 @@ export const getMe = async (req, res) => {
 
 
 export const devLogin = async (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(403).json({ message: 'Not available in production' });
-  }
   const { username } = req.body;
   if (!username) {
     return res.status(400).json({ message: 'Username is required' });
