@@ -10,3 +10,4 @@ router.get('/watch-stats', getWatchStats);
 router.get('/summary', getWatchTogetherAnalytics);
 
 export default router;
+

@@ -203,7 +203,7 @@ const ChatBox = () => {
       }`}>
         {chatMessages.length === 0 ? (
           <div className="text-slate-500 text-xs px-4 select-none">
-            <p className="font-bold text-sm text-slate-400">Welcome to the chat! 👋</p>
+            <p className="font-bold text-sm text-slate-400">Welcome to the chat!👋</p>
             <p className="text-[11px] text-slate-500 mt-1">Be the first to say hello.</p>
           </div>
         ) : (
