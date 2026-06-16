@@ -14,6 +14,7 @@ const usePlayerStore = create((set) => ({
   slotRect: null,
   isSynced: true,
   hasSyncedInitial: false,
+  syncStatus: 'synced',
 
   setRoomId: (roomId) => set({ roomId }),
   setCurrentVideoId: (currentVideoId) => set({ currentVideoId, isClosed: !currentVideoId }),
@@ -27,6 +28,7 @@ const usePlayerStore = create((set) => ({
   setSlotRect: (slotRect) => set({ slotRect }),
   setIsSynced: (isSynced) => set({ isSynced }),
   setHasSyncedInitial: (value) => set({ hasSyncedInitial: value }),
+  setSyncStatus: (syncStatus) => set({ syncStatus }),
 
   initPlayer: (roomId, videoId) => {
     set({

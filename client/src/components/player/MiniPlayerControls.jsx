@@ -9,6 +9,7 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
     isPlaying,
     isMuted,
     currentTime,
+    playbackRate,
     expand,
     close,
   } = useGlobalPlayer();
@@ -180,6 +181,11 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
           <span className="text-slate-400 font-semibold tracking-wider uppercase text-[8px]">
             Mini Mode
           </span>
+          {isPlaying && (
+            <span className="text-[9px] font-bold text-youtube-red">
+              {playbackRate}x
+            </span>
+          )}
         </div>
       </div>
     </div>

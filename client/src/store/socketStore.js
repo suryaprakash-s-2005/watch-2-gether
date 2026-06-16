@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import useRoomStore from './roomStore';
 import useChatStore from './chatStore';
 import useAuthStore from './authStore';
+import usePlayerStore from './playerStore';
 
 const useSocketStore = create((set, get) => ({
   socket: null,
@@ -38,6 +39,13 @@ const useSocketStore = create((set, get) => ({
       }
     });
 
+    socketInstance.io.on('reconnect', () => {
+      console.log('Socket reconnected, re-joining room...');
+      if (roomCode) {
+        socketInstance.emit('join-room', { roomCode });
+      }
+    });
+
     
     socketInstance.on('room-state', (state) => {
       const roomStore = useRoomStore.getState();
@@ -56,8 +64,20 @@ const useSocketStore = create((set, get) => ({
           type: 'sync', 
           time: state.currentTime, 
           isPlaying: state.isPlaying,
-          syncVersion: state.syncVersion
+          syncVersion: state.syncVersion,
+          playbackRate: state.playbackRate
         });
+
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser && state.hostId) {
+          const hostIdStr = String(state.hostId._id || state.hostId);
+          const userIdStr = String(currentUser._id);
+          if (hostIdStr !== userIdStr) {
+            const player = usePlayerStore.getState();
+            player.setIsSynced(true);
+            player.setHasSyncedInitial(true);
+          }
+        }
       }
     });
 
@@ -147,9 +167,19 @@ const useSocketStore = create((set, get) => ({
       roomStore.setPlaybackCommand({ type: 'seek', time: data.currentTime, syncVersion: data.syncVersion });
     });
 
+    socketInstance.on('video-playback-rate', (data) => {
+      const roomStore = useRoomStore.getState();
+      roomStore.setPlaybackCommand({ type: 'rate', rate: data.playbackRate, syncVersion: data.syncVersion });
+    });
+
     socketInstance.on('video-sync', (data) => {
       const roomStore = useRoomStore.getState();
-      roomStore.setPlaybackCommand({ type: 'drift-sync', time: data.currentTime, syncVersion: data.syncVersion });
+      roomStore.setPlaybackCommand({
+        type: 'drift-sync',
+        time: data.currentTime,
+        syncVersion: data.syncVersion,
+        playbackRate: data.playbackRate
+      });
     });
 
     // Upgraded Chat Events
@@ -301,6 +331,16 @@ const useSocketStore = create((set, get) => ({
   emitTransferHost: (newHostId) => {
     const { socket } = get();
     if (socket) socket.emit('transfer-host', { newHostId });
+  },
+
+  emitVideoEnded: () => {
+    const { socket } = get();
+    if (socket) socket.emit('video-ended');
+  },
+
+  emitVideoPlaybackRate: (playbackRate) => {
+    const { socket } = get();
+    if (socket) socket.emit('video-playback-rate', { playbackRate });
   }
 }));
 

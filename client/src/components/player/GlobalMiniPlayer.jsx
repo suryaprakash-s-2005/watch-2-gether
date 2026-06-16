@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, Suspense } from 'react';
+import { useEffect, useRef, useState, Suspense, useCallback } from 'react';
 import ReactPlayer from 'react-player';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -7,6 +7,7 @@ import useRoomStore from '../../store/roomStore';
 import useAuthStore from '../../store/authStore';
 import useSocketStore from '../../store/socketStore';
 import MiniPlayerControls from './MiniPlayerControls';
+import SharedPlaybackControls from './SharedPlaybackControls';
 
 const MATCH_URL_YOUTUBE = /(?:youtu\.be\/|youtube(?:-nocookie|education)?\.com\/(?:embed\/|v\/|watch\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))((\w|-){11})|youtube\.com\/playlist\?list=|youtube\.com\/user\//;
 
@@ -37,14 +38,20 @@ const GlobalMiniPlayer = () => {
     isPlaying,
     volume,
     isMuted,
+    playbackRate,
     isMiniPlayer,
     isClosed,
     slotRect,
     isSynced,
+    syncStatus,
     setIsPlaying,
     setCurrentTime,
     setIsMuted,
+    setPlaybackRate,
     setIsMiniPlayer,
+    setSyncStatus,
+    emitVideoEnded,
+    emitVideoPlaybackRate,
   } = useGlobalPlayer();
 
   const { currentRoom, playbackCommand, setPlaybackCommand, updateRoomPlayback } = useRoomStore();
@@ -55,7 +62,9 @@ const GlobalMiniPlayer = () => {
   const dragConstraintsRef = useRef(null);
   const localVersionRef = useRef(0);
   const suppressUntil = useRef(0);
+  const localPlaybackRateRef = useRef(1);
   const [duration, setDuration] = useState(0);
+  const [localVolume, setLocalVolume] = useState(volume);
   
   // Custom mini player size state for desktop/tablet resizing
   const [miniWidth, setMiniWidth] = useState(320);
@@ -70,6 +79,16 @@ const GlobalMiniPlayer = () => {
     setIsPlaying(false);
   }
 
+  const applyPlaybackRate = useCallback((rate) => {
+    if (!playerRef.current) return;
+    const internal = playerRef.current.getInternalPlayer();
+    if (internal && typeof internal.setPlaybackRate === 'function') {
+      internal.setPlaybackRate(rate);
+    }
+    localPlaybackRateRef.current = rate;
+    setPlaybackRate(rate);
+  }, [setPlaybackRate]);
+
   const onPlayerReady = () => {
     setIsReady(true);
     if (lastSyncedVideoId.current === currentVideoId) return;
@@ -78,6 +97,9 @@ const GlobalMiniPlayer = () => {
       lastSyncedVideoId.current = currentVideoId;
       suppress(2000);
       
+      const roomPlaybackRate = currentRoom?.playbackRate || 1;
+      applyPlaybackRate(roomPlaybackRate);
+
       const shouldPlay = currentRoom ? currentRoom.isPlaying : false;
       if (isHost || !shouldPlay) {
         setIsPlaying(shouldPlay);
@@ -147,7 +169,7 @@ const GlobalMiniPlayer = () => {
   useEffect(() => {
     if (!isValidYoutube || !playbackCommand || !isReady) return;
 
-    const { type, time, isPlaying: shouldPlay, syncVersion } = playbackCommand;
+    const { type, time, isPlaying: shouldPlay, syncVersion, rate, playbackRate: cmdRate } = playbackCommand;
 
     if (syncVersion !== undefined && syncVersion < localVersionRef.current) {
       setPlaybackCommand(null);
@@ -162,32 +184,53 @@ const GlobalMiniPlayer = () => {
       setIsPlaying(true);
       seekTo(time);
       updateRoomPlayback({ isPlaying: true, currentTime: time });
+      setSyncStatus('synced');
 
     } else if (type === 'pause') {
       suppress(1200);
       setIsPlaying(false);
       seekTo(time);
       updateRoomPlayback({ isPlaying: false, currentTime: time });
+      setSyncStatus('synced');
 
     } else if (type === 'seek') {
       suppress(1200);
       seekTo(time);
       updateRoomPlayback({ currentTime: time });
+      setSyncStatus('synced');
 
     } else if (type === 'change') {
       setIsPlaying(false);
       seekTo(0);
       updateRoomPlayback({ currentTime: 0, isPlaying: false });
+      setSyncStatus('synced');
+
+    } else if (type === 'rate') {
+      if (rate && rate !== localPlaybackRateRef.current) {
+        applyPlaybackRate(rate);
+        updateRoomPlayback({ playbackRate: rate });
+      }
 
     } else if (type === 'sync' || type === 'drift-sync') {
       const localTime = getCurrentTime();
       const diff = localTime - time; // positive if local is ahead, negative if behind
+      const absDiff = Math.abs(diff);
       const isRoomPlaying = shouldPlay !== undefined ? shouldPlay : type === 'drift-sync';
 
+      if (cmdRate && cmdRate !== localPlaybackRateRef.current) {
+        applyPlaybackRate(cmdRate);
+      }
+
+      if (absDiff < 1) {
+        setSyncStatus('synced');
+      } else if (absDiff < 3) {
+        setSyncStatus('drifted');
+      } else {
+        setSyncStatus('unsynced');
+      }
+
       if (diff > 0) {
-        // Local is ahead of incoming room state
         if (diff < 3) {
-          // Ignore sync, do not seek backwards
           if (isPlaying !== isRoomPlaying) {
             setIsPlaying(isRoomPlaying);
           }
@@ -196,22 +239,18 @@ const GlobalMiniPlayer = () => {
             setIsPlaying(isRoomPlaying);
           }
         } else {
-          // diff > 5, apply correction (seek back)
           suppress(1200);
           setIsPlaying(isRoomPlaying);
           seekTo(time);
           updateRoomPlayback({ isPlaying: isRoomPlaying, currentTime: time });
         }
       } else {
-        // Local is behind incoming room state
-        const absDiff = Math.abs(diff);
         if (absDiff > 3) {
           suppress(1200);
           setIsPlaying(isRoomPlaying);
           seekTo(time);
           updateRoomPlayback({ isPlaying: isRoomPlaying, currentTime: time });
         } else {
-          // Just align playing state
           if (isPlaying !== isRoomPlaying) {
             setIsPlaying(isRoomPlaying);
           }
@@ -220,7 +259,7 @@ const GlobalMiniPlayer = () => {
     }
 
     setPlaybackCommand(null);
-  }, [playbackCommand, isValidYoutube, isReady, isPlaying, setIsPlaying, setPlaybackCommand, updateRoomPlayback]);
+  }, [playbackCommand, isValidYoutube, isReady, isPlaying, setIsPlaying, setPlaybackCommand, updateRoomPlayback, setSyncStatus, applyPlaybackRate]);
 
   // Handle player events and report them
   const handlePlay = () => {
@@ -259,6 +298,24 @@ const GlobalMiniPlayer = () => {
     suppress(1200);
   };
 
+  const handleEnded = () => {
+    if (!isHost) return;
+    emitVideoEnded();
+  };
+
+  const handleVolumeChange = (newVolume) => {
+    setLocalVolume(newVolume);
+  };
+
+  const handlePlaybackRateChange = (newRate) => {
+    if (!hasControl) return;
+    applyPlaybackRate(newRate);
+    if (isHost) {
+      emitVideoPlaybackRate(newRate);
+    }
+    updateRoomPlayback({ playbackRate: newRate });
+  };
+
   // Host periodic sync emission
   useEffect(() => {
     if (!isHost || !isValidYoutube || !isPlaying) return;
@@ -268,7 +325,22 @@ const GlobalMiniPlayer = () => {
       if (time > 0) {
         emitVideoSync(time);
       }
-    }, 4000); // sync every 4 seconds
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [isHost, isValidYoutube, isPlaying, emitVideoSync]);
+
+  // Non-host periodic rate sync — keep in sync with host's rate
+  useEffect(() => {
+    if (isHost || !isValidYoutube || !isPlaying) return;
+
+    const interval = setInterval(() => {
+      const currentRate = localPlaybackRateRef.current;
+      const roomRate = currentRoom?.playbackRate || 1;
+      if (Math.abs(currentRate - roomRate) > 0.01) {
+        applyPlaybackRate(roomRate);
+      }
+    }, 8000);
 
     return () => clearInterval(interval);
   }, [isHost, isValidYoutube, isPlaying, emitVideoSync]);
@@ -428,7 +500,7 @@ const GlobalMiniPlayer = () => {
       )}
 
       {/* Actual Player Canvas */}
-      <div className="w-full h-full relative">
+      <div className="w-full h-full relative" data-fullscreen-container>
         <div className={isMobile && isMiniPlayer ? 'absolute inset-0 opacity-0 pointer-events-none' : 'w-full h-full'}>
           <Suspense fallback={
             <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-950">
@@ -442,12 +514,13 @@ const GlobalMiniPlayer = () => {
               width="100%"
               height="100%"
               playing={isSynced && isPlaying}
-              controls={hasControl && !isMiniPlayer} // Custom controls overlay on mini mode
-              volume={isMuted ? 0 : volume}
+              controls={false}
+              volume={isMuted ? 0 : localVolume}
               onReady={onPlayerReady}
               onPlay={handlePlay}
               onPause={handlePause}
               onSeek={handleSeek}
+              onEnded={handleEnded}
               onDuration={(d) => setDuration(d)}
               onProgress={({ playedSeconds }) => {
                 if (isPlaying) {
@@ -459,12 +532,33 @@ const GlobalMiniPlayer = () => {
           </Suspense>
         </div>
 
-        {/* Lock controls overlay inside Room page if guest control is off */}
-        {isRoomMode && !hasControl && (
+        {/* Lock controls overlay for non-room/mobile modes */}
+        {isRoomMode && !hasControl && !isMiniPlayer && (
           <div
             className="absolute inset-0 bg-transparent cursor-not-allowed"
             style={{ pointerEvents: 'auto' }}
             title="Controls locked. Only the Host can control video playback."
+          />
+        )}
+
+        {/* Room mode shared playback controls (visible to all users) */}
+        {isRoomMode && (
+          <SharedPlaybackControls
+            duration={duration}
+            currentTime={currentTime}
+            isPlaying={isPlaying}
+            volume={localVolume}
+            isMuted={isMuted}
+            playbackRate={playbackRate}
+            onTogglePlay={handleTogglePlay}
+            onSeekTo={handleSeekTo}
+            onToggleMute={handleToggleMute}
+            onVolumeChange={handleVolumeChange}
+            onPlaybackRateChange={handlePlaybackRateChange}
+            hasControl={hasControl}
+            isHost={isHost}
+            isSynced={isSynced}
+            syncStatus={syncStatus}
           />
         )}
 

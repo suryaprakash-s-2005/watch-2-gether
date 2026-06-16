@@ -72,6 +72,10 @@ const roomSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  playbackRate: {
+    type: Number,
+    default: 1
+  },
   lastStateChange: {
     type: Date,
     default: Date.now

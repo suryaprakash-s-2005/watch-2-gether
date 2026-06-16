@@ -7,6 +7,10 @@ const useGlobalPlayer = () => {
   const navigate = useNavigate();
   const socketStore = useSocketStore();
   const roomStore = useRoomStore();
+  const {
+    emitVideoEnded,
+    emitVideoPlaybackRate,
+  } = socketStore;
   
   const {
     currentVideoId,
@@ -22,6 +26,7 @@ const useGlobalPlayer = () => {
     slotRect,
     isSynced,
     hasSyncedInitial,
+    syncStatus,
     setIsPlaying,
     setCurrentTime,
     setVolume,
@@ -32,6 +37,7 @@ const useGlobalPlayer = () => {
     setSlotRect,
     setIsSynced,
     setHasSyncedInitial,
+    setSyncStatus,
     resetPlayer,
     initPlayer,
   } = usePlayerStore();
@@ -79,6 +85,7 @@ const useGlobalPlayer = () => {
     slotRect,
     isSynced,
     hasSyncedInitial,
+    syncStatus,
     setIsPlaying,
     setCurrentTime,
     setVolume,
@@ -89,6 +96,7 @@ const useGlobalPlayer = () => {
     setSlotRect,
     setIsSynced,
     setHasSyncedInitial,
+    setSyncStatus,
     initPlayer,
     resetPlayer,
     play,
@@ -97,6 +105,8 @@ const useGlobalPlayer = () => {
     unmute,
     expand,
     close,
+    emitVideoEnded,
+    emitVideoPlaybackRate,
   };
 };
 

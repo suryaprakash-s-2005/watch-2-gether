@@ -105,7 +105,8 @@ export const roomSocketHandler = (io) => {
             guestControlEnabled: room.guestControlEnabled,
             users: room.users,
             syncVersion: room.syncVersion,
-            queue: room.queue || []
+            queue: room.queue || [],
+            playbackRate: room.playbackRate || 1
           });
 
           const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -249,6 +250,100 @@ export const roomSocketHandler = (io) => {
       }
     });
 
+    socket.on('video-playback-rate', async ({ playbackRate }) => {
+      const code = socket.roomCode;
+      if (!code) return;
+
+      try {
+        const isHost = await validateHost(code, socket.user._id);
+        if (!isHost) {
+          socket.emit('error-msg', 'Access denied: Only the Host can change playback speed');
+          return;
+        }
+
+        const room = await Room.findOneAndUpdate(
+          { roomCode: code },
+          { $set: { playbackRate, lastStateChange: new Date() }, $inc: { syncVersion: 1 } },
+          { new: true }
+        );
+
+        socket.broadcast.to(code).emit('video-playback-rate', { playbackRate, syncVersion: room.syncVersion });
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    socket.on('video-ended', async () => {
+      const code = socket.roomCode;
+      if (!code) return;
+
+      try {
+        const isHost = await validateHost(code, socket.user._id);
+        if (!isHost) {
+          socket.emit('error-msg', 'Access denied: Only the Host can advance the video');
+          return;
+        }
+
+        let success = false;
+        let retries = 3;
+        while (!success && retries > 0) {
+          try {
+            const room = await Room.findOne({ roomCode: code });
+            if (!room) return;
+
+            if (!room.queue || room.queue.length === 0) {
+              room.isPlaying = false;
+              room.currentTime = 0;
+              room.lastStateChange = new Date();
+              room.syncVersion += 1;
+              await room.save();
+              success = true;
+
+              io.to(code).emit('video-pause', { currentTime: 0, syncVersion: room.syncVersion });
+              return;
+            }
+
+            const nextItem = room.queue[0];
+            const videoId = nextItem.videoId;
+            const title = nextItem.title;
+
+            room.currentVideo = videoId;
+            room.currentVideoTitle = title;
+            room.currentTime = 0;
+            room.isPlaying = true;
+            room.lastStateChange = new Date();
+            room.syncVersion += 1;
+            room.queue.shift();
+
+            await room.save();
+            success = true;
+
+            io.to(code).emit('video-change', { videoId });
+            io.to(code).emit('video-play', { currentTime: 0, syncVersion: room.syncVersion });
+            io.to(code).emit('queue-updated', { queue: room.queue });
+
+            const sysMsg = await Message.create({
+              roomId: room._id,
+              senderName: 'System',
+              message: `🎵 Auto-advancing to next video: ${title}`,
+              isSystem: true
+            });
+            io.to(code).emit('chat-message', sysMsg);
+          } catch (err) {
+            if (err.name === 'VersionError' && retries > 0) {
+              retries--;
+              await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 50));
+            } else {
+              console.error(err);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
     socket.on('video-sync', async ({ currentTime }) => {
       const code = socket.roomCode;
       if (!code) return;
@@ -265,7 +360,8 @@ export const roomSocketHandler = (io) => {
           socket.broadcast.to(code).emit('video-sync', {
             currentTime,
             syncVersion: room.syncVersion,
-            isPlaying: true
+            isPlaying: true,
+            playbackRate: room.playbackRate || 1
           });
         }
       } catch (err) {
@@ -583,22 +679,24 @@ export const roomSocketHandler = (io) => {
         });
 
         
-        for (const sid of roomSockets) {
-          if (sid === hostSocketId) continue;
-          const guestSocket = io.sockets.sockets.get(sid);
-          if (guestSocket) {
-            guestSocket.emit('video-sync', {
-              currentTime: estimatedTime,
-              syncVersion: room.syncVersion,
-              isPlaying: true
-            });
+          for (const sid of roomSockets) {
+            if (sid === hostSocketId) continue;
+            const guestSocket = io.sockets.sockets.get(sid);
+            if (guestSocket) {
+              guestSocket.emit('video-sync', {
+                currentTime: estimatedTime,
+                syncVersion: room.syncVersion,
+                isPlaying: true,
+                playbackRate: room.playbackRate || 1
+              });
+            }
           }
         }
       }
     } catch (err) {
       console.error('Server heartbeat error:', err.message);
     }
-  }, 10000);
+  }, 5000);
 
   
   const classifyCategory = (title) => {
