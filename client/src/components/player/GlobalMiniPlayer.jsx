@@ -35,6 +35,7 @@ const GlobalMiniPlayer = () => {
   
   const {
     currentVideoId,
+    currentTime,
     isPlaying,
     volume,
     isMuted,
