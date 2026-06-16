@@ -66,7 +66,7 @@ const roomSchema = new mongoose.Schema({
   ],
   guestControlEnabled: {
     type: Boolean,
-    default: false
+    default: true
   },
   syncVersion: {
     type: Number,

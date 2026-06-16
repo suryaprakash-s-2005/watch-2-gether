@@ -533,15 +533,6 @@ const GlobalMiniPlayer = () => {
           </Suspense>
         </div>
 
-        {/* Lock controls overlay for non-room/mobile modes */}
-        {isRoomMode && !hasControl && !isMiniPlayer && (
-          <div
-            className="absolute inset-0 bg-transparent cursor-not-allowed"
-            style={{ pointerEvents: 'auto' }}
-            title="Controls locked. Only the Host can control video playback."
-          />
-        )}
-
         {/* Room mode shared playback controls (visible to all users) */}
         {isRoomMode && (
           <SharedPlaybackControls
@@ -560,6 +551,7 @@ const GlobalMiniPlayer = () => {
             isHost={isHost}
             isSynced={isSynced}
             syncStatus={syncStatus}
+            currentVideoId={currentVideoId}
           />
         )}
 

@@ -4,8 +4,9 @@ import useAuthStore from '../../store/authStore';
 import useGlobalPlayer from '../../hooks/useGlobalPlayer';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
-  Maximize, Minimize, Lock, Crown, Wifi, WifiOff
+  Maximize, Minimize, Lock, Unlock, Crown, Wifi, WifiOff
 } from 'lucide-react';
+import useSocketStore from '../../store/socketStore';
 
 const PLAYBACK_RATES = [0.5, 1, 1.5, 2];
 
@@ -32,19 +33,46 @@ const SharedPlaybackControls = ({
   isHost,
   isSynced,
   syncStatus,
+  currentVideoId,
 }) => {
   const { currentRoom, roomUsers } = useRoomStore();
   const { user } = useAuthStore();
   const { emitVideoEnded } = useGlobalPlayer();
+  const { emitSetGuestControl } = useSocketStore();
 
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const hideTimerRef = useRef(null);
   const controlsRef = useRef(null);
   const progressRef = useRef(null);
+  const previewRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [localVolume, setLocalVolume] = useState(volume);
   const [showRateMenu, setShowRateMenu] = useState(false);
+  const [hoveredTime, setHoveredTime] = useState(0);
+  const [hoverPosition, setHoverPosition] = useState(0);
+  const [isHovering, setIsHovering] = useState(false);
+
+  const guestControlEnabled = currentRoom?.guestControlEnabled ?? false;
+
+  const handleToggleGuestControl = () => {
+    emitSetGuestControl(!guestControlEnabled);
+  };
+
+  const handleProgressHover = (e) => {
+    if (!progressRef.current) return;
+    const rect = progressRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
+    setHoverPosition(x);
+    setHoveredTime(Math.max(0, Math.min(x * duration, duration)));
+    setIsHovering(true);
+  };
+
+  const handleProgressLeave = () => {
+    if (!isDragging) {
+      setIsHovering(false);
+    }
+  };
 
   const hostUser = roomUsers.find(u =>
     u.userId && currentRoom?.hostId &&
@@ -178,30 +206,70 @@ const SharedPlaybackControls = ({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {!hasControl && (
-              <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                <Lock size={10} />
-                <span>Controls locked</span>
-              </div>
+            {isHost ? (
+              <button
+                onClick={handleToggleGuestControl}
+                className={`flex items-center gap-1 text-[10px] font-semibold transition rounded px-1.5 py-0.5 cursor-pointer ${
+                  guestControlEnabled
+                    ? 'text-green-400 hover:text-green-300 hover:bg-green-900/20'
+                    : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/40'
+                }`}
+                title={guestControlEnabled ? 'Disable guest control' : 'Enable guest control'}
+              >
+                {guestControlEnabled ? <Unlock size={10} /> : <Lock size={10} />}
+                <span>{guestControlEnabled ? 'Guests can control' : 'Guests locked'}</span>
+              </button>
+            ) : (
+              !hasControl && (
+                <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                  <Lock size={10} />
+                  <span>Controls locked</span>
+                </div>
+              )
             )}
           </div>
         </div>
 
-        {/* Progress bar */}
-        <div
-          ref={progressRef}
-          className={`w-full h-1.5 bg-slate-700/50 rounded-full overflow-hidden cursor-pointer group mb-2 ${
-            hasControl ? 'hover:h-2' : ''
-          } transition-all duration-150`}
-          onPointerDown={handleProgressDragStart}
-        >
+        {/* Progress bar with peek preview */}
+        <div className="relative mb-2">
+          {/* Peek preview floating element */}
+          {isHovering && currentVideoId && (
+            <div
+              ref={previewRef}
+              className="absolute bottom-full mb-2 -translate-x-1/2 z-30 pointer-events-none"
+              style={{ left: `${hoverPosition * 100}%` }}
+            >
+              <div className="bg-slate-900 border border-slate-700/60 rounded-lg overflow-hidden shadow-2xl">
+                <img
+                  src={`https://img.youtube.com/vi/${currentVideoId}/mqdefault.jpg`}
+                  alt="Preview"
+                  className="w-40 h-[22.5] object-cover"
+                  style={{ display: 'block', width: '160px', height: '90px' }}
+                  draggable={false}
+                />
+                <div className="px-2 py-1 text-center">
+                  <span className="text-[10px] font-bold text-white tabular-nums">
+                    {formatTime(hoveredTime)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
           <div
-            className="h-full bg-youtube-red relative transition-[width] duration-75"
-            style={{ width: `${progressPercent}%` }}
+            ref={progressRef}
+            className="w-full h-1.5 bg-slate-700/50 rounded-full overflow-hidden cursor-pointer group hover:h-2 transition-all duration-150"
+            onPointerDown={handleProgressDragStart}
+            onPointerMove={handleProgressHover}
+            onPointerLeave={handleProgressLeave}
           >
-            <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md ${
-              showControls ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-            } transition-opacity`} />
+            <div
+              className="h-full bg-youtube-red relative transition-[width] duration-75"
+              style={{ width: `${progressPercent}%` }}
+            >
+              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md ${
+                showControls ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              } transition-opacity`} />
+            </div>
           </div>
         </div>
 
@@ -215,38 +283,42 @@ const SharedPlaybackControls = ({
         {/* Bottom row: play controls, volume, rate, fullscreen */}
         <div className="flex items-center justify-between gap-1">
           <div className="flex items-center gap-0.5">
-            {hasControl ? (
-              <>
-                <button
-                  onClick={skipBackward}
-                  className="p-1.5 text-slate-300 hover:text-white transition rounded-lg hover:bg-slate-800/60 cursor-pointer flex items-center justify-center"
-                  title="Back 10s"
-                >
-                  <SkipBack size={16} />
-                </button>
-                <button
-                  onClick={onTogglePlay}
-                  className="p-2 bg-youtube-red hover:bg-youtube-hover text-white rounded-full transition shadow-lg shadow-youtube-red/20 hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center"
-                  title={isPlaying ? 'Pause' : 'Play'}
-                >
-                  {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
-                </button>
-                <button
-                  onClick={skipForward}
-                  className="p-1.5 text-slate-300 hover:text-white transition rounded-lg hover:bg-slate-800/60 cursor-pointer flex items-center justify-center"
-                  title="Forward 10s"
-                >
-                  <SkipForward size={16} />
-                </button>
-              </>
-            ) : (
-              <div className="flex items-center gap-2 pl-1">
-                <Lock size={14} className="text-slate-500" />
-                <span className="text-[10px] text-slate-500 font-medium">
-                  {isHost ? 'You have control' : 'Waiting for host control'}
-                </span>
-              </div>
-            )}
+            <button
+              onClick={skipBackward}
+              disabled={!hasControl}
+              className={`p-1.5 transition rounded-lg flex items-center justify-center ${
+                hasControl
+                  ? 'text-slate-300 hover:text-white hover:bg-slate-800/60 cursor-pointer'
+                  : 'text-slate-600 cursor-not-allowed'
+              }`}
+              title="Back 10s"
+            >
+              <SkipBack size={16} />
+            </button>
+            <button
+              onClick={onTogglePlay}
+              disabled={!hasControl}
+              className={`p-2 rounded-full transition flex items-center justify-center ${
+                hasControl
+                  ? 'bg-youtube-red hover:bg-youtube-hover text-white shadow-lg shadow-youtube-red/20 hover:scale-105 active:scale-95 cursor-pointer'
+                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+              }`}
+              title={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+            </button>
+            <button
+              onClick={skipForward}
+              disabled={!hasControl}
+              className={`p-1.5 transition rounded-lg flex items-center justify-center ${
+                hasControl
+                  ? 'text-slate-300 hover:text-white hover:bg-slate-800/60 cursor-pointer'
+                  : 'text-slate-600 cursor-not-allowed'
+              }`}
+              title="Forward 10s"
+            >
+              <SkipForward size={16} />
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
