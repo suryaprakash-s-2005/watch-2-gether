@@ -190,18 +190,16 @@ const useSocketStore = create((set, get) => ({
     });
 
     socketInstance.on('reaction-added', ({ messageId, reactions }) => {
-      const roomStore = useRoomStore.getState();
-      roomStore.setChatHistory(
-        roomStore.chatMessages.map((msg) =>
+      useRoomStore.getState().setChatHistory((messages) =>
+        messages.map((msg) =>
           msg._id === messageId ? { ...msg, reactions } : msg
         )
       );
     });
 
     socketInstance.on('reaction-removed', ({ messageId, reactions }) => {
-      const roomStore = useRoomStore.getState();
-      roomStore.setChatHistory(
-        roomStore.chatMessages.map((msg) =>
+      useRoomStore.getState().setChatHistory((messages) =>
+        messages.map((msg) =>
           msg._id === messageId ? { ...msg, reactions } : msg
         )
       );

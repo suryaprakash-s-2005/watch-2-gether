@@ -217,9 +217,9 @@ const MessageItem = ({ msg, onReplySelect }) => {
         <button
           type="button"
           onClick={() => onReplySelect(msg)}
-          className="text-[10px] text-slate-400 hover:text-white font-bold transition flex items-center gap-1 bg-slate-800/45 border border-slate-700/25 px-2.5 py-1.5 rounded-xl cursor-pointer active:scale-95"
+          className="text-[10px] text-slate-400 hover:text-white font-bold transition flex items-center gap-1 bg-slate-800/45 border border-slate-700/25 px-3 py-2 rounded-xl cursor-pointer active:scale-95 min-h-[36px]"
         >
-          <Reply size={10.5} />
+          <Reply size={12} />
           <span>Reply</span>
         </button>
         
@@ -227,9 +227,9 @@ const MessageItem = ({ msg, onReplySelect }) => {
           <button
             type="button"
             onClick={() => setShowReactionPicker(!showReactionPicker)}
-            className="text-[10px] text-slate-400 hover:text-white font-bold transition flex items-center gap-1 bg-slate-800/45 border border-slate-700/25 px-2.5 py-1.5 rounded-xl cursor-pointer active:scale-95"
+            className="text-[10px] text-slate-400 hover:text-white font-bold transition flex items-center gap-1 bg-slate-800/45 border border-slate-700/25 px-3 py-2 rounded-xl cursor-pointer active:scale-95 min-h-[36px]"
           >
-            <Smile size={10.5} />
+            <Smile size={12} />
             <span>React</span>
           </button>
           

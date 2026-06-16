@@ -18,15 +18,15 @@ const UserList = () => {
   const isCurrentUserHost = currentRoom?.hostId && user?._id && String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
 
   return (
-    <div className="glass-panel rounded-3xl p-6 flex flex-col h-full border border-slate-800/80">
-      <div className="flex items-center gap-2 pb-4 mb-4 border-b border-slate-800/60">
-        <Users size={18} className="text-youtube-red" />
-        <h3 className="font-bold text-white text-base">
+    <div className="glass-panel rounded-3xl p-4 md:p-6 flex flex-col h-full border border-slate-800/80">
+      <div className="flex items-center gap-2 pb-3 md:pb-4 mb-3 md:mb-4 border-b border-slate-800/60">
+        <Users size={16} className="text-youtube-red" />
+        <h3 className="font-bold text-white text-sm md:text-base">
           Active Watchers ({roomUsers.length})
         </h3>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 min-h-0 md:min-h-[280px] max-h-none md:max-h-[420px] lg:max-h-[500px] xl:max-h-[600px]">
+      <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0 max-h-full no-overscroll">
         {roomUsers.map((member) => {
           const isUserHost = member.userId && currentRoom?.hostId && String(member.userId) === String(currentRoom.hostId._id || currentRoom.hostId);
           return (

@@ -28,7 +28,8 @@ function App() {
     if (token) {
       getMe();
     }
-  }, [token, getMe]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <BrowserRouter>

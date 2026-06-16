@@ -44,36 +44,47 @@ const useAuthStore = create((set) => ({
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch {
-      localStorage.removeItem('token');
-      set({
-        token: null,
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: 'Session expired',
-      });
+    } catch (err) {
+      const isUnauthorized = err.response?.status === 401;
+      if (isUnauthorized) {
+        localStorage.removeItem('token');
+        set({
+          token: null,
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: 'Session expired',
+        });
+      } else {
+        set({ isLoading: false, error: 'Failed to verify session' });
+      }
     }
   },
 
   setToken: async (token) => {
     localStorage.setItem('token', token);
-    set({ token, isLoading: true });
+    set({ isLoading: true });
     try {
       const { data } = await api.get('/auth/me');
       set({
+        token,
         user: data,
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch {
-      localStorage.removeItem('token');
-      set({
-        token: null,
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
+    } catch (err) {
+      const isUnauthorized = err.response?.status === 401;
+      if (isUnauthorized) {
+        localStorage.removeItem('token');
+        set({
+          token: null,
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+      } else {
+        set({ isLoading: false });
+      }
     }
   },
 

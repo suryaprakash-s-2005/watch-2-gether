@@ -48,10 +48,10 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
 
   if (layout === 'mobile') {
     return (
-      <div className="w-full h-full flex items-center justify-between px-3 gap-3 relative select-none">
+      <div className="w-full h-full flex items-center justify-between px-3 gap-2 relative select-none">
         {/* Left Video Thumbnail */}
         <div 
-          className="w-14 h-9 rounded bg-slate-800 flex-shrink-0 overflow-hidden border border-slate-700 relative"
+          className="w-14 h-10 rounded-lg bg-slate-800 flex-shrink-0 overflow-hidden border border-slate-700 relative"
         >
           {thumbnailUrl ? (
             <img src={thumbnailUrl} alt="Video thumbnail" className="w-full h-full object-cover" />
@@ -74,25 +74,28 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
         <div className="flex items-center gap-1">
           <button
             onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
-            className="p-2 text-slate-200 hover:text-white transition active:scale-95 cursor-pointer"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-200 hover:text-white transition active:scale-95 cursor-pointer"
+            aria-label={isPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+            {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
           </button>
           
           <button
             onClick={(e) => { e.stopPropagation(); expand(); }}
-            className="p-2 text-slate-200 hover:text-white transition active:scale-95 cursor-pointer"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-200 hover:text-white transition active:scale-95 cursor-pointer"
             title="Expand to Room"
+            aria-label="Expand to Room"
           >
-            <Maximize2 size={16} />
+            <Maximize2 size={18} />
           </button>
 
           <button
             onClick={(e) => { e.stopPropagation(); close(); }}
-            className="p-2 text-red-500 hover:text-red-400 transition active:scale-95 cursor-pointer"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-red-500 hover:text-red-400 transition active:scale-95 cursor-pointer"
             title="Close Party"
+            aria-label="Close Party"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 

@@ -77,37 +77,37 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-center items-center px-4 relative overflow-hidden">
+    <div className="min-h-dvh bg-slate-900 text-slate-100 flex flex-col justify-center items-center px-4 relative overflow-hidden">
       {}
-      <div className="absolute top-5 right-6 z-20">
+      <div className="absolute top-4 right-4 md:top-5 md:right-6 z-20">
         <button 
           onClick={toggleTheme}
-          className="p-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800/80 hover:border-slate-700 transition cursor-pointer flex items-center justify-center shrink-0 w-9 h-9"
+          className="p-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800/80 hover:border-slate-700 transition cursor-pointer flex items-center justify-center shrink-0 min-w-[44px] min-h-[44px]"
           title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
-          {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
       </div>
 
       {}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-youtube-red/10 rounded-full blur-[120px] pointer-events-none"></div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[400px] h-[300px] md:h-[400px] bg-youtube-red/10 rounded-full blur-[100px] md:blur-[120px] pointer-events-none"></div>
 
       <div className="w-full max-w-md relative z-10">
         {/* Brand logo */}
-        <div className="flex flex-col items-center gap-2 mb-8 text-center">
-          <div className="bg-youtube-red p-3.5 rounded-2xl text-white shadow-lg shadow-youtube-red/20 mb-2">
-            <Play size={24} fill="currentColor" />
+        <div className="flex flex-col items-center gap-2 mb-6 md:mb-8 text-center">
+          <div className="bg-youtube-red p-3 rounded-2xl text-white shadow-lg shadow-youtube-red/20 mb-2">
+            <Play size={22} fill="currentColor" />
           </div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-white">
+          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
             Watch-2-Gether
           </h2>
-          <p className="text-slate-450 text-sm">
+          <p className="text-slate-450 text-xs md:text-sm">
             Watch YouTube Together, Anywhere.
           </p>
         </div>
 
         {/* Login panel card */}
-        <div className="glass-panel rounded-3xl p-8 border border-slate-800/80 shadow-2xl">
+        <div className="glass-panel rounded-3xl p-5 md:p-8 border border-slate-800/80 shadow-2xl">
           {errorMessage && (
             <div className="mb-6 p-4 rounded-xl bg-youtube-red/15 border border-youtube-red/25 text-youtube-red text-xs font-bold leading-relaxed">
               {errorMessage}
@@ -117,7 +117,7 @@ const Login = () => {
           {}
           <button
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 text-slate-900 font-bold py-3.5 px-4 rounded-2xl transition-all duration-200 shadow-md hover:scale-[1.01] active:scale-[0.99]"
+            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 text-slate-900 font-bold py-4 md:py-3.5 px-4 rounded-2xl transition-all duration-200 shadow-md hover:scale-[1.01] active:scale-[0.99] min-h-[48px]"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -171,11 +171,11 @@ const Login = () => {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={guestLoading}
-              className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-750 border border-slate-700/50 text-white font-bold py-3.5 px-4 rounded-2xl transition-all duration-200 disabled:opacity-55 disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.99]"
-            >
+          <button
+            type="submit"
+            disabled={guestLoading}
+            className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-750 border border-slate-700/50 text-white font-bold py-4 md:py-3.5 px-4 rounded-2xl transition-all duration-200 disabled:opacity-55 disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.99] min-h-[48px]"
+          >
               {guestLoading ? (
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
               ) : (

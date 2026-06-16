@@ -34,7 +34,6 @@ const usePlayerStore = create((set) => ({
       currentVideoId: videoId,
       isClosed: !videoId,
       isMiniPlayer: false,
-      isSynced: true, // Default to synced, will be adjusted by visibility / room checks
       hasSyncedInitial: false,
     });
   },

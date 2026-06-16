@@ -45,8 +45,6 @@ export const roomSocketHandler = (io) => {
   io.use(socketAuth);
 
   io.on('connection', (socket) => {
-    console.log(`Socket connected: ${socket.id} (User: ${socket.user?.name})`);
-    
     // Register upgraded chat socket events
     registerChatHandlers(io, socket);
     
@@ -54,73 +52,78 @@ export const roomSocketHandler = (io) => {
 
     
     socket.on('join-room', async ({ roomCode }) => {
-      try {
-        const code = roomCode.toUpperCase();
-        let room = await Room.findOne({ roomCode: code });
-        if (!room) {
-          socket.emit('error-msg', 'Room not found');
-          return;
-        }
+      const code = roomCode.toUpperCase();
 
-        socket.join(code);
-        socket.roomCode = code;
-        socket.joinTime = Date.now();
+      let success = false;
+      let retries = 3;
+      while (!success && retries > 0) {
+        try {
+          let room = await Room.findOne({ roomCode: code });
+          if (!room) {
+            socket.emit('error-msg', 'Room not found');
+            return;
+          }
 
-        
-        const userIndex = room.users.findIndex(u => u.userId.toString() === socket.user._id.toString());
-        if (userIndex === -1) {
-          room.users.push({
+          socket.join(code);
+          socket.roomCode = code;
+          socket.joinTime = Date.now();
+
+          const userIndex = room.users.findIndex(u => u.userId.toString() === socket.user._id.toString());
+          if (userIndex === -1) {
+            room.users.push({
+              userId: socket.user._id,
+              username: socket.user.name,
+              avatar: socket.user.avatar,
+              socketId: socket.id
+            });
+            await User.findByIdAndUpdate(socket.user._id, { $inc: { totalJoinedRooms: 1 } });
+          } else {
+            room.users[userIndex].socketId = socket.id;
+            room.users[userIndex].avatar = socket.user.avatar;
+          }
+
+          await room.save();
+          success = true;
+
+          io.to(code).emit('user-joined', {
             userId: socket.user._id,
             username: socket.user.name,
-            avatar: socket.user.avatar,
-            socketId: socket.id
+            users: room.users
           });
-          
-          await User.findByIdAndUpdate(socket.user._id, { $inc: { totalJoinedRooms: 1 } });
-        } else {
-          
-          room.users[userIndex].socketId = socket.id;
-          room.users[userIndex].avatar = socket.user.avatar;
+
+          let currentTime = room.currentTime;
+          if (room.isPlaying && room.lastStateChange) {
+            const elapsed = (Date.now() - new Date(room.lastStateChange).getTime()) / 1000;
+            currentTime += elapsed;
+          }
+
+          socket.emit('room-state', {
+            currentVideo: room.currentVideo,
+            currentTime: currentTime,
+            isPlaying: room.isPlaying,
+            hostId: room.hostId,
+            guestControlEnabled: room.guestControlEnabled,
+            users: room.users,
+            syncVersion: room.syncVersion,
+            queue: room.queue || []
+          });
+
+          const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const messages = await Message.find({
+            roomId: room._id,
+            createdAt: { $gte: yesterday }
+          }).sort({ createdAt: 1 });
+          socket.emit('chat-history', messages);
+        } catch (error) {
+          if (error.name === 'VersionError' && retries > 0) {
+            retries--;
+            await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 50));
+          } else {
+            console.error('Socket join-room error:', error);
+            socket.emit('error-msg', 'Failed to join room');
+            return;
+          }
         }
-
-        await room.save();
-
-        
-        io.to(code).emit('user-joined', {
-          userId: socket.user._id,
-          username: socket.user.name,
-          users: room.users
-        });
-
-        let currentTime = room.currentTime;
-        if (room.isPlaying && room.lastStateChange) {
-          const elapsed = (Date.now() - new Date(room.lastStateChange).getTime()) / 1000;
-          currentTime += elapsed;
-        }
-
-        // Sync state to current connector
-        socket.emit('room-state', {
-          currentVideo: room.currentVideo,
-          currentTime: currentTime,
-          isPlaying: room.isPlaying,
-          hostId: room.hostId,
-          guestControlEnabled: room.guestControlEnabled,
-          users: room.users,
-          syncVersion: room.syncVersion,
-          queue: room.queue || []
-        });
-
-        // Load chat history from the last 24 hours
-        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const messages = await Message.find({
-          roomId: room._id,
-          createdAt: { $gte: yesterday }
-        }).sort({ createdAt: 1 });
-        socket.emit('chat-history', messages);
-
-      } catch (error) {
-        console.error('Socket join-room error:', error);
-        socket.emit('error-msg', 'Failed to join room');
       }
     });
 
@@ -302,48 +305,59 @@ export const roomSocketHandler = (io) => {
       const code = socket.roomCode;
       if (!code) return;
 
-      try {
-        const isHost = await validateHost(code, socket.user._id);
-        if (!isHost) {
-          socket.emit('error-msg', 'Access denied: Only the Host can approve queue items');
-          return;
+      const isHost = await validateHost(code, socket.user._id);
+      if (!isHost) {
+        socket.emit('error-msg', 'Access denied: Only the Host can approve queue items');
+        return;
+      }
+
+      let success = false;
+      let retries = 3;
+      while (!success && retries > 0) {
+        try {
+          const room = await Room.findOne({ roomCode: code });
+          if (!room) return;
+
+          const queueItem = room.queue.id(itemId);
+          if (!queueItem) {
+            socket.emit('error-msg', 'Queue item not found');
+            return;
+          }
+
+          const videoId = queueItem.videoId;
+          const title = queueItem.title;
+
+          room.currentVideo = videoId;
+          room.currentVideoTitle = title;
+          room.currentTime = 0;
+          room.isPlaying = true;
+          room.lastStateChange = new Date();
+          room.syncVersion += 1;
+          room.queue.pull(itemId);
+
+          await room.save();
+          success = true;
+
+          io.to(code).emit('video-change', { videoId });
+          io.to(code).emit('video-play', { currentTime: 0, syncVersion: room.syncVersion });
+          io.to(code).emit('queue-updated', { queue: room.queue });
+
+          const sysMsgQueue = await Message.create({
+            roomId: room._id,
+            senderName: 'System',
+            message: `🎵 Now playing: ${title} (approved by Host)`,
+            isSystem: true
+          });
+          io.to(code).emit('chat-message', sysMsgQueue);
+        } catch (err) {
+          if (err.name === 'VersionError' && retries > 0) {
+            retries--;
+            await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 50));
+          } else {
+            console.error(err);
+            return;
+          }
         }
-
-        const room = await Room.findOne({ roomCode: code });
-        if (!room) return;
-
-        const queueItem = room.queue.id(itemId);
-        if (!queueItem) {
-          socket.emit('error-msg', 'Queue item not found');
-          return;
-        }
-
-        const videoId = queueItem.videoId;
-        const title = queueItem.title;
-
-        room.currentVideo = videoId;
-        room.currentVideoTitle = title;
-        room.currentTime = 0;
-        room.isPlaying = true;
-        room.lastStateChange = new Date();
-        room.syncVersion += 1;
-        room.queue.pull(itemId);
-
-        await room.save();
-
-        io.to(code).emit('video-change', { videoId });
-        io.to(code).emit('video-play', { currentTime: 0, syncVersion: room.syncVersion });
-        io.to(code).emit('queue-updated', { queue: room.queue });
-
-        const sysMsgQueue = await Message.create({
-          roomId: room._id,
-          senderName: 'System',
-          message: `🎵 Now playing: ${title} (approved by Host)`,
-          isSystem: true
-        });
-        io.to(code).emit('chat-message', sysMsgQueue);
-      } catch (err) {
-        console.error(err);
       }
     });
 
@@ -351,34 +365,45 @@ export const roomSocketHandler = (io) => {
       const code = socket.roomCode;
       if (!code) return;
 
-      try {
-        const isHost = await validateHost(code, socket.user._id);
-        if (!isHost) {
-          socket.emit('error-msg', 'Access denied: Only the Host can remove queue items');
-          return;
+      const isHost = await validateHost(code, socket.user._id);
+      if (!isHost) {
+        socket.emit('error-msg', 'Access denied: Only the Host can remove queue items');
+        return;
+      }
+
+      let success = false;
+      let retries = 3;
+      while (!success && retries > 0) {
+        try {
+          const room = await Room.findOne({ roomCode: code });
+          if (!room) return;
+
+          const queueItem = room.queue.id(itemId);
+          if (!queueItem) return;
+
+          const title = queueItem.title;
+          room.queue.pull(itemId);
+          await room.save();
+          success = true;
+
+          io.to(code).emit('queue-updated', { queue: room.queue });
+
+          const chatMsg = await Message.create({
+            roomId: room._id,
+            senderName: 'System',
+            message: `❌ Removed request: ${title} (rejected by Host)`,
+            isSystem: true
+          });
+          io.to(code).emit('chat-message', chatMsg);
+        } catch (err) {
+          if (err.name === 'VersionError' && retries > 0) {
+            retries--;
+            await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 50));
+          } else {
+            console.error(err);
+            return;
+          }
         }
-
-        const room = await Room.findOne({ roomCode: code });
-        if (!room) return;
-
-        const queueItem = room.queue.id(itemId);
-        if (!queueItem) return;
-
-        const title = queueItem.title;
-        room.queue.pull(itemId);
-        await room.save();
-
-        io.to(code).emit('queue-updated', { queue: room.queue });
-
-        const chatMsg = await Message.create({
-          roomId: room._id,
-          senderName: 'System',
-          message: `❌ Removed request: ${title} (rejected by Host)`,
-          isSystem: true
-        });
-        io.to(code).emit('chat-message', chatMsg);
-      } catch (err) {
-        console.error(err);
       }
     });
 
@@ -409,32 +434,43 @@ export const roomSocketHandler = (io) => {
       const code = socket.roomCode;
       if (!code) return;
 
-      try {
-        const isHost = await validateHost(code, socket.user._id);
-        if (!isHost) {
-          socket.emit('error-msg', 'Access denied: Only the Host can transfer leadership');
-          return;
+      const isHost = await validateHost(code, socket.user._id);
+      if (!isHost) {
+        socket.emit('error-msg', 'Access denied: Only the Host can transfer leadership');
+        return;
+      }
+
+      let success = false;
+      let retries = 3;
+      while (!success && retries > 0) {
+        try {
+          const room = await Room.findOne({ roomCode: code });
+          if (!room) return;
+
+          const targetUser = room.users.find(u => u.userId.toString() === newHostId.toString());
+          if (!targetUser) {
+            socket.emit('error-msg', 'User not found in this room');
+            return;
+          }
+
+          room.hostId = targetUser.userId;
+          await room.save();
+          success = true;
+
+          io.to(code).emit('host-change', {
+            hostId: targetUser.userId,
+            message: `Host transferred leadership to ${targetUser.username}! 👑`
+          });
+        } catch (err) {
+          if (err.name === 'VersionError' && retries > 0) {
+            retries--;
+            await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 50));
+          } else {
+            console.error(err);
+            socket.emit('error-msg', 'Failed to transfer host role');
+            return;
+          }
         }
-
-        const room = await Room.findOne({ roomCode: code });
-        if (!room) return;
-
-        const targetUser = room.users.find(u => u.userId.toString() === newHostId.toString());
-        if (!targetUser) {
-          socket.emit('error-msg', 'User not found in this room');
-          return;
-        }
-
-        room.hostId = targetUser.userId;
-        await room.save();
-
-        io.to(code).emit('host-change', {
-          hostId: targetUser.userId,
-          message: `Host transferred leadership to ${targetUser.username}! 👑`
-        });
-      } catch (err) {
-        console.error(err);
-        socket.emit('error-msg', 'Failed to transfer host role');
       }
     });
 
@@ -446,7 +482,6 @@ export const roomSocketHandler = (io) => {
       const code = socket.roomCode;
       if (!code) return;
 
-      console.log(`Socket disconnected: ${socket.id} (User: ${socket.user?.name})`);
       try {
         let initialRoom = await Room.findOne({ roomCode: code });
         if (!initialRoom) return;
@@ -624,7 +659,7 @@ export const roomSocketHandler = (io) => {
         });
 
         const friendMap = {};
-        activeFriendships.forEach(f => {
+        for (const f of activeFriendships) {
           const reqStr = f.requesterId.toString();
           const recStr = f.receiverId.toString();
           if (!friendMap[reqStr]) friendMap[reqStr] = new Set();
@@ -632,11 +667,10 @@ export const roomSocketHandler = (io) => {
           friendMap[reqStr].add(recStr);
           friendMap[recStr].add(reqStr);
 
-          
           f.sharedMinutes = (f.sharedMinutes || 0) + 1;
           f.lastInteraction = new Date();
-          f.save();
-        });
+          await f.save();
+        }
 
         
         const category = classifyCategory(room.currentVideoTitle);
@@ -661,33 +695,22 @@ export const roomSocketHandler = (io) => {
           await User.findByIdAndUpdate(u.userId, updateObj);
 
           
-          await UserAnalytics.findOneAndUpdate(
+          const existingEntry = await UserAnalytics.findOneAndUpdate(
             { userId: u.userId, 'dailyWatchData.date': todayStr },
-            { $inc: { 'dailyWatchData.$.minutes': 1 } },
+            { $inc: { 'dailyWatchData.$.minutes': 1, [`categoryWatchMinutes.${category}`]: 1 } },
             { new: true }
-          ).then(async (doc) => {
-            if (!doc) {
-              const existing = await UserAnalytics.findOne({ userId: u.userId });
-              if (existing) {
-                existing.dailyWatchData.push({ date: todayStr, minutes: 1 });
-                await existing.save();
-              } else {
-                await UserAnalytics.create({
-                  userId: u.userId,
-                  dailyWatchData: [{ date: todayStr, minutes: 1 }]
-                });
-              }
-            }
-          });
+          );
 
-          
-          let analyticsDoc = await UserAnalytics.findOne({ userId: u.userId });
-          if (!analyticsDoc) {
-            analyticsDoc = await UserAnalytics.create({ userId: u.userId, dailyWatchData: [] });
+          if (!existingEntry) {
+            await UserAnalytics.findOneAndUpdate(
+              { userId: u.userId },
+              {
+                $push: { dailyWatchData: { date: todayStr, minutes: 1 } },
+                $inc: { [`categoryWatchMinutes.${category}`]: 1 },
+              },
+              { upsert: true }
+            );
           }
-          const currentCategoryMinutes = analyticsDoc.categoryWatchMinutes.get(category) || 0;
-          analyticsDoc.categoryWatchMinutes.set(category, currentCategoryMinutes + 1);
-          await analyticsDoc.save();
         }
       }
     } catch (err) {

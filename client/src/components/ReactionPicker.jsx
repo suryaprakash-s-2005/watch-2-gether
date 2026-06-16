@@ -26,7 +26,7 @@ const ReactionPicker = ({ onSelect, onClose }) => {
             onSelect(emoji);
             onClose();
           }}
-          className="hover:bg-slate-800/80 p-1 rounded-full text-base transition-all duration-200 hover:scale-125 cursor-pointer active:scale-95 flex items-center justify-center"
+          className="hover:bg-slate-800/80 p-2 rounded-full text-lg md:text-base transition-all duration-200 hover:scale-125 cursor-pointer active:scale-95 flex items-center justify-center min-w-[40px] min-h-[40px]"
           title={`React with ${emoji}`}
         >
           {emoji}

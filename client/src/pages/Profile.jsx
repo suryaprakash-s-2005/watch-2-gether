@@ -51,12 +51,17 @@ const Profile = () => {
   const [selectedFriend, setSelectedFriend] = useState(null);
   const bubbleContainerRef = useRef(null);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
-  const [now] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
   }, []);
 
   const isOwnProfile = currentUser && profileUser && currentUser._id.toString() === profileUser._id.toString();
@@ -228,8 +233,8 @@ const Profile = () => {
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-8 relative z-10">
         <div className="flex flex-col gap-6">
           {/* Header Card (Glassmorphism) */}
-          <div className="glass-panel p-6 md:p-8 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center md:items-start justify-between gap-6 hover:border-slate-700/50 transition-all duration-300">
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 w-full text-center md:text-left">
+          <div className="glass-panel p-5 md:p-8 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center md:items-start justify-between gap-4 md:gap-6 hover:border-slate-700/50 transition-all duration-300">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6 w-full text-center md:text-left">
               {/* Profile Avatar with status indicator */}
               <div className="relative group">
                 <div className="absolute -inset-0.5 bg-gradient-to-tr from-youtube-red to-sky-500 rounded-full blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
@@ -406,7 +411,7 @@ const Profile = () => {
           </div>
 
           {/* Stats Grid Dashboard */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             <div className="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center gap-4 hover:border-slate-700/50 transition">
               <div className="bg-youtube-red/10 p-3.5 rounded-xl text-youtube-red">
                 <Film size={22} />
@@ -469,13 +474,13 @@ const Profile = () => {
           </div>
 
           {}
-          <div className="glass-panel p-6 md:p-8 rounded-3xl border border-slate-800 hover:border-slate-700/50 transition-all duration-300">
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+          <div className="glass-panel p-5 md:p-8 rounded-3xl border border-slate-800 hover:border-slate-700/50 transition-all duration-300">
+            <h2 className="text-lg md:text-xl font-bold text-white mb-4 md:mb-6 flex items-center gap-2">
               <Award className="text-youtube-red" />
               Achievement Badges
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
               {profileUser.badges && profileUser.badges.length > 0 ? (
                 profileUser.badges.map((badge) => {
                   const BadgeIcon = iconMap[badge.icon] || Award;
@@ -510,13 +515,13 @@ const Profile = () => {
 
           {/* Friends Social Graph (Conditionally rendered) */}
           {profileUser.friends && profileUser.friends.length > 0 && (
-            <div className="glass-panel p-6 md:p-8 rounded-3xl border border-slate-800 hover:border-slate-750 transition-all duration-300 flex flex-col">
+            <div className="glass-panel p-5 md:p-8 rounded-3xl border border-slate-800 hover:border-slate-750 transition-all duration-300 flex flex-col">
               <div className="mb-4">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Sparkles className="text-sky-400 animate-pulse" size={18} />
+                <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+                  <Sparkles className="text-sky-400 animate-pulse" size={16} />
                   Friends Social Graph
                 </h2>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                <p className="text-[11px] md:text-xs text-slate-400 mt-1 leading-relaxed">
                   Bubbles sizes map to watch time together. Grabs bubbles to float/drag them!
                 </p>
               </div>

@@ -74,11 +74,12 @@ export const sendFriendRequest = async (req, res) => {
       }
       
       if (existingFriendship.status === 'rejected') {
-        existingFriendship.requesterId = requesterId;
-        existingFriendship.receiverId = receiver._id;
-        existingFriendship.status = 'pending';
-        existingFriendship.createdAt = new Date();
-        await existingFriendship.save();
+        await Friendship.deleteOne({ _id: existingFriendship._id });
+        await Friendship.create({
+          requesterId,
+          receiverId: receiver._id,
+          status: 'pending',
+        });
       }
     } else {
       

@@ -56,19 +56,10 @@ const VideoPlayer = () => {
       resizeObserver.observe(containerRef.current);
     }
 
-    // Animation frame loop to track layout transitions smoothly
-    let animationId;
-    const loop = () => {
-      updateRect();
-      animationId = requestAnimationFrame(loop);
-    };
-    animationId = requestAnimationFrame(loop);
-
     return () => {
       window.removeEventListener('resize', updateRect);
       window.removeEventListener('scroll', updateRect);
       resizeObserver.disconnect();
-      cancelAnimationFrame(animationId);
       setSlotRect(null); // Clear coordinates on unmount
     };
   }, [setSlotRect, videoUrl]);
@@ -104,8 +95,8 @@ const VideoPlayer = () => {
             </h3>
             <p className="text-[10px] sm:text-sm text-slate-400 leading-normal sm:leading-relaxed mx-auto">
               {isHost
-                ? "Paste a YouTube link or Video ID in the input box above to start streaming for the party."
-                : "Waiting for the Host to start a YouTube stream. Hang tight!"}
+                ? "Paste a YouTube link or Video ID in the input box above to start streaming."
+                : "Waiting for the Host to start a stream. Hang tight!"}
             </p>
           </div>
         </div>
@@ -115,13 +106,13 @@ const VideoPlayer = () => {
           <div className="p-4 bg-youtube-red/10 border border-youtube-red/20 rounded-full text-youtube-red mb-4 animate-bounce">
             <Tv className="w-8 h-8" />
           </div>
-          <h3 className="text-lg font-bold text-white mb-2">Watch Party is Active</h3>
-          <p className="text-xs text-slate-400 max-w-xs mb-6">
+          <h3 className="text-base sm:text-lg font-bold text-white mb-2">Watch Party is Active</h3>
+          <p className="text-[11px] sm:text-xs text-slate-400 max-w-xs mb-6">
             The host is streaming a video. Click below to synchronize your playback and audio.
           </p>
           <button
             onClick={handleSyncClick}
-            className="bg-youtube-red hover:bg-youtube-hover text-white font-bold text-sm px-6 py-3 rounded-2xl shadow-lg shadow-youtube-red/20 transition-all duration-200 active:scale-95 cursor-pointer"
+            className="bg-youtube-red hover:bg-youtube-hover text-white font-bold text-sm px-6 py-3 min-h-[44px] rounded-2xl shadow-lg shadow-youtube-red/20 transition-all duration-200 active:scale-95 cursor-pointer"
           >
             Join & Sync Stream
           </button>

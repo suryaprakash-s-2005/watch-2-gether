@@ -25,7 +25,7 @@ const ChatBox = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionSuggestions, setMentionSuggestions] = useState([]);
-  const [cursorPosition, setCursorPosition] = useState(0);
+  const cursorPositionRef = useRef(0);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -73,7 +73,7 @@ const ChatBox = () => {
     startTyping();
 
     const selectionStart = e.target.selectionStart;
-    setCursorPosition(selectionStart);
+    cursorPositionRef.current = selectionStart;
 
     // Look for "@" symbol preceding the cursor
     const textBeforeCursor = value.substring(0, selectionStart);
@@ -103,8 +103,8 @@ const ChatBox = () => {
     if (!input) return;
 
     const text = messageText;
-    const textBeforeCursor = text.substring(0, cursorPosition);
-    const textAfterCursor = text.substring(cursorPosition);
+    const textBeforeCursor = text.substring(0, cursorPositionRef.current);
+    const textAfterCursor = text.substring(cursorPositionRef.current);
 
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
     if (lastAtIndex === -1) return;
@@ -198,7 +198,7 @@ const ChatBox = () => {
       </div>
 
       {/* Message List Scrolling Container */}
-      <div className={`flex-1 overflow-y-auto space-y-2 pr-1 mb-2.5 min-h-0 md:min-h-[280px] max-h-none md:max-h-[420px] lg:max-h-[500px] xl:max-h-[600px] scrollbar-thin ${
+      <div className={`flex-1 overflow-y-auto space-y-2 pr-1 mb-2.5 min-h-0 max-h-full scrollbar-thin no-overscroll ${
         chatMessages.length === 0 ? 'flex flex-col items-center justify-center text-center' : ''
       }`}>
         {chatMessages.length === 0 ? (
@@ -220,7 +220,7 @@ const ChatBox = () => {
 
       {/* Autocomplete Mentions Popup */}
       {showMentions && mentionSuggestions.length > 0 && (
-        <div className="absolute bottom-20 left-4 right-4 bg-slate-950/95 border border-slate-800 rounded-2xl shadow-2xl z-40 max-h-[160px] overflow-y-auto divide-y divide-slate-800/65 backdrop-blur-md scrollbar-none animate-fadeIn select-none">
+        <div className="absolute bottom-20 left-2 right-2 md:left-4 md:right-4 bg-slate-950/95 border border-slate-800 rounded-2xl shadow-2xl z-40 max-h-[160px] overflow-y-auto divide-y divide-slate-800/65 backdrop-blur-md scrollbar-none animate-fadeIn select-none no-overscroll">
           {mentionSuggestions.map((member) => (
             <div
               key={member.userId}
@@ -261,14 +261,14 @@ const ChatBox = () => {
         <TypingIndicator />
 
         {/* Input Form */}
-        <form onSubmit={handleSendMessage} className="flex gap-2 items-center bg-slate-950/40 border border-slate-800 rounded-2xl p-1 px-1.5 focus-within:border-youtube-red/45 transition">
+        <form onSubmit={handleSendMessage} className="flex gap-2 items-center bg-slate-950/40 border border-slate-800 rounded-2xl p-1 pl-3 focus-within:border-youtube-red/45 transition">
           <input
             ref={inputRef}
             type="text"
             value={messageText}
             onChange={handleInputChange}
             placeholder="Send a message..."
-            className="flex-1 bg-transparent border-none text-white text-xs px-2 py-2.5 focus:outline-none placeholder-slate-500"
+            className="flex-1 bg-transparent border-none text-white text-sm md:text-xs px-1 py-3 md:py-2.5 focus:outline-none placeholder-slate-500"
             maxLength={1000}
           />
           
@@ -276,19 +276,19 @@ const ChatBox = () => {
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="text-slate-400 hover:text-white p-2 rounded-xl transition cursor-pointer"
+            className="text-slate-400 hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl transition cursor-pointer"
             title="Choose emoji"
           >
-            <Smile size={15.5} />
+            <Smile size={18} />
           </button>
 
           {/* Submit button */}
           <button
             type="submit"
             disabled={!messageText.trim()}
-            className="bg-youtube-red hover:bg-youtube-hover disabled:bg-slate-800/40 disabled:text-slate-600 text-white font-bold p-2.5 rounded-xl transition shadow-lg active:scale-95 cursor-pointer shrink-0"
+            className="bg-youtube-red hover:bg-youtube-hover disabled:bg-slate-800/40 disabled:text-slate-600 text-white font-bold min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl transition shadow-lg active:scale-95 cursor-pointer shrink-0"
           >
-            <Send size={13.5} />
+            <Send size={16} />
           </button>
         </form>
       </div>

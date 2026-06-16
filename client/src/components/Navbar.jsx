@@ -146,19 +146,19 @@ const Navbar = () => {
       <div className="flex md:hidden items-center gap-2">
         <button 
           onClick={toggleTheme}
-          className="p-1.5 rounded-full bg-slate-800/40 hover:bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700/50 transition cursor-pointer flex items-center justify-center shrink-0 w-7 h-7"
+          className="p-2 rounded-full bg-slate-800/40 hover:bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700/50 transition cursor-pointer flex items-center justify-center shrink-0 min-w-[44px] min-h-[44px]"
           title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
-          {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
 
         {isAuthenticated && (
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-1.5 rounded-lg bg-slate-800/40 text-slate-300 hover:text-white border border-slate-700/50 cursor-pointer flex items-center justify-center"
+            className="p-2 rounded-lg bg-slate-800/40 text-slate-300 hover:text-white border border-slate-700/50 cursor-pointer flex items-center justify-center min-w-[44px] min-h-[44px]"
             aria-label="Toggle navigation menu"
           >
-            {isMobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
+            {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         )}
       </div>
@@ -166,13 +166,23 @@ const Navbar = () => {
       {/* Mobile Navigation Drawer */}
       <AnimatePresence>
         {isMobileMenuOpen && isAuthenticated && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="absolute top-full left-0 right-0 w-full bg-slate-950/95 border-b border-slate-800 backdrop-blur-lg flex flex-col p-5 gap-3.5 z-40 shadow-2xl overflow-hidden md:hidden"
-          >
+          <>
+            {/* Backdrop overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-30 md:hidden"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="absolute top-full left-3 right-3 mt-2 bg-slate-950/95 border border-slate-800/80 backdrop-blur-lg flex flex-col p-4 gap-3 z-40 shadow-2xl rounded-2xl overflow-hidden md:hidden"
+            >
             {/* Nav Items */}
             <div className="flex flex-col gap-1.5">
               {navItems.map((item) => {
@@ -182,7 +192,7 @@ const Navbar = () => {
                   <button
                     key={item.path}
                     onClick={() => handleNavClick(item.path)}
-                    className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition border cursor-pointer ${
+                    className={`flex items-center gap-3 w-full px-4 min-h-[44px] rounded-xl text-sm font-bold transition border cursor-pointer ${
                       active 
                         ? 'bg-youtube-red/10 text-youtube-red border-youtube-red/20' 
                         : 'text-slate-400 hover:text-slate-200 bg-slate-900/30 border-slate-850'
@@ -202,7 +212,7 @@ const Navbar = () => {
               <div className="flex flex-col gap-3">
                 <div 
                   onClick={() => handleNavClick(`/profile/${profileUsername}`)}
-                  className="flex items-center gap-3 bg-slate-900/50 hover:bg-slate-900 border border-slate-850 p-3 rounded-2xl cursor-pointer transition"
+                  className="flex items-center gap-3 bg-slate-900/50 hover:bg-slate-900 border border-slate-850 p-3 rounded-2xl cursor-pointer transition min-h-[52px]"
                 >
                   {user.avatar ? (
                     <img 
@@ -227,7 +237,7 @@ const Navbar = () => {
 
                 <button
                   onClick={handleLogout}
-                  className="flex items-center justify-center gap-2 text-slate-400 hover:text-white bg-youtube-red/10 hover:bg-youtube-red text-xs font-bold py-3 px-4 rounded-xl border border-youtube-red/20 transition cursor-pointer"
+                  className="flex items-center justify-center gap-2 text-slate-400 hover:text-white bg-youtube-red/10 hover:bg-youtube-red text-xs font-bold min-h-[44px] px-4 rounded-xl border border-youtube-red/20 transition cursor-pointer"
                 >
                   <LogOut size={14} />
                   <span>Logout</span>
@@ -235,6 +245,7 @@ const Navbar = () => {
               </div>
             )}
           </motion.div>
+          </>
         )}
       </AnimatePresence>
     </nav>

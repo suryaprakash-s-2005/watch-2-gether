@@ -78,7 +78,7 @@ const Analytics = () => {
 
         {/* Overview Stats Grid */}
         {summary && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
             
             <div className="glass-panel p-4.5 rounded-2xl border border-slate-800/80 hover:border-slate-750 transition duration-200">
               <div className="text-youtube-red bg-youtube-red/10 p-2.5 rounded-xl w-fit mb-3">
@@ -146,7 +146,7 @@ const Analytics = () => {
               <div className="flex bg-slate-900/60 p-1 rounded-xl border border-slate-800/80 text-[10px] font-bold">
                 <button
                   onClick={() => handleTimeframeChange('daily')}
-                  className={`px-3 py-1.5 rounded-lg transition ${
+                  className={`px-3 py-2 md:py-1.5 rounded-lg transition min-h-[32px] ${
                     timeframe === 'daily' 
                       ? 'bg-slate-800 text-white' 
                       : 'text-slate-400 hover:text-slate-200'
@@ -156,7 +156,7 @@ const Analytics = () => {
                 </button>
                 <button
                   onClick={() => handleTimeframeChange('weekly')}
-                  className={`px-3 py-1.5 rounded-lg transition ${
+                  className={`px-3 py-2 md:py-1.5 rounded-lg transition min-h-[32px] ${
                     timeframe === 'weekly' 
                       ? 'bg-slate-800 text-white' 
                       : 'text-slate-400 hover:text-slate-200'
@@ -166,7 +166,7 @@ const Analytics = () => {
                 </button>
                 <button
                   onClick={() => handleTimeframeChange('monthly')}
-                  className={`px-3 py-1.5 rounded-lg transition ${
+                  className={`px-3 py-2 md:py-1.5 rounded-lg transition min-h-[32px] ${
                     timeframe === 'monthly' 
                       ? 'bg-slate-800 text-white' 
                       : 'text-slate-400 hover:text-slate-200'

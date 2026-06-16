@@ -107,7 +107,7 @@ const RoomHeader = ({ isModal = false, onClose = null }) => {
                 setInputError('');
               }}
               placeholder={isHost ? "Paste YouTube Link or Video ID" : "Suggest YouTube Link or Video ID"}
-              className="glass-input px-4 py-3.5 rounded-2xl text-xs focus:ring-2 focus:ring-youtube-red w-full"
+              className="glass-input px-4 py-4 md:py-3.5 rounded-2xl text-sm md:text-xs focus:ring-2 focus:ring-youtube-red w-full"
             />
             {isHost ? (
               <div className="flex gap-2 w-full">
@@ -117,7 +117,7 @@ const RoomHeader = ({ isModal = false, onClose = null }) => {
                     handleLoadVideo(e);
                     if (videoUrl.trim() && onClose) onClose();
                   }}
-                  className="flex-1 justify-center bg-youtube-red hover:bg-youtube-hover text-white font-bold text-xs py-3 rounded-xl transition shadow-lg shadow-youtube-red/20 flex items-center justify-center gap-2"
+                  className="flex-1 justify-center bg-youtube-red hover:bg-youtube-hover text-white font-bold text-xs py-3.5 rounded-xl transition shadow-lg shadow-youtube-red/20 flex items-center justify-center gap-2 min-h-[44px]"
                 >
                   <Tv size={14} />
                   Play Now
@@ -128,7 +128,7 @@ const RoomHeader = ({ isModal = false, onClose = null }) => {
                     handleAddToQueue(e);
                     if (videoUrl.trim() && onClose) onClose();
                   }}
-                  className="flex-1 justify-center bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/60 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-2"
+                  className="flex-1 justify-center bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/60 font-bold text-xs py-3.5 rounded-xl transition flex items-center justify-center gap-2 min-h-[44px]"
                 >
                   Queue
                 </button>
@@ -140,7 +140,7 @@ const RoomHeader = ({ isModal = false, onClose = null }) => {
                   handleAddToQueue(e);
                   if (videoUrl.trim() && onClose) onClose();
                 }}
-                className="w-full justify-center bg-youtube-red hover:bg-youtube-hover text-white font-bold text-xs py-3 rounded-xl transition shadow-lg shadow-youtube-red/20 flex items-center justify-center gap-2"
+                className="w-full justify-center bg-youtube-red hover:bg-youtube-hover text-white font-bold text-xs py-3.5 rounded-xl transition shadow-lg shadow-youtube-red/20 flex items-center justify-center gap-2 min-h-[44px]"
               >
                 Request Video
               </button>

@@ -64,9 +64,19 @@ body {
   color: var(--text-color);
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
               background-image 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
               color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Prevent text size adjust on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -303,4 +313,49 @@ h1, h2, h3, h4, h5, h6 {
 .force-white-text,
 .force-white-text * {
   color: #ffffff !important;
+}
+
+/* Minimum touch target for mobile accessibility */
+.min-touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Mobile-safe padding utility */
+.safe-area-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+}
+
+/* Prevent pull-to-refresh on mobile overlays */
+.no-overscroll {
+  overscroll-behavior: contain;
+}
+
+
+/* Smooth momentum scrolling for scrollable containers */
+[class*="overflow-y-auto"] {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile-friendly button reset */
+button {
+  touch-action: manipulation;
+}
+
+/* Keyboard-accessible focus styles */
+*:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

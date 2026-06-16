@@ -66,8 +66,10 @@ const Room = () => {
       usePlayerStore.getState().resetPlayer();
     }
 
+    const originalCode = roomCode;
+
     getRoomDetails(roomCode).then((room) => {
-      if (!active) return;
+      if (!active || roomCode !== originalCode) return;
       if (room && token) {
         connectSocket(token, roomCode.toUpperCase());
         const currentVideoId = usePlayerStore.getState().currentVideoId;
@@ -130,30 +132,30 @@ const Room = () => {
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col overflow-x-hidden">
       <Navbar />
 
-      <main className="flex-1 p-3 md:p-6 max-w-7xl mx-auto w-full flex flex-col gap-3 md:gap-6 min-h-0 h-[calc(100dvh-72px)] md:h-auto overflow-hidden md:overflow-visible">
+      <main className="flex-1 p-3 md:p-6 max-w-7xl mx-auto w-full flex flex-col gap-2 md:gap-6 min-h-0 md:min-h-0 overflow-hidden md:overflow-visible">
         {/* On desktop: standard RoomHeader. On mobile: hidden */}
         {!isMobile && <RoomHeader />}
 
         {/* On mobile: compact invitation code & stream actions bar */}
         {isMobile && (
-          <div className="flex items-center justify-between gap-3 p-3 bg-slate-950/45 border border-slate-800/80 rounded-2xl shrink-0 font-sans shadow-inner">
-            <div className="flex items-center gap-1.5 bg-slate-800 border border-slate-750/70 px-2.5 py-1.5 rounded-xl font-mono text-xs font-bold text-youtube-red">
+          <div className="flex items-center justify-between gap-2 p-2.5 bg-slate-950/45 border border-slate-800/80 rounded-2xl shrink-0 font-sans shadow-inner">
+            <div className="flex items-center gap-1.5 bg-slate-800 border border-slate-750/70 px-3 py-2 rounded-xl font-mono text-xs font-bold text-youtube-red">
               <span>{currentRoom.roomCode}</span>
               <button
                 onClick={handleCopyCode}
-                className="text-slate-400 hover:text-white transition-colors duration-150 p-0.5 cursor-pointer"
+                className="text-slate-400 hover:text-white transition-colors duration-150 p-1 cursor-pointer"
                 title="Copy Room Code"
               >
-                {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+                {copied ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
               </button>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsHeaderOpen(true)}
-                className="flex items-center gap-1 bg-youtube-red hover:bg-youtube-hover text-white text-[11px] font-bold py-1.5 px-3 rounded-xl transition cursor-pointer shadow-md shadow-youtube-red/10"
+                className="flex items-center gap-1.5 bg-youtube-red hover:bg-youtube-hover text-white text-xs font-bold min-h-[36px] px-3.5 rounded-xl transition cursor-pointer shadow-md shadow-youtube-red/10"
               >
-                <Tv size={11.5} />
+                <Tv size={13} />
                 <span>{isHost ? 'Stream' : 'Request'}</span>
               </button>
               
@@ -164,10 +166,10 @@ const Room = () => {
                   clearRoomState();
                   navigate('/dashboard');
                 }}
-                className="flex items-center justify-center p-2 bg-slate-850 hover:bg-slate-800 text-slate-300 rounded-xl transition border border-slate-800 cursor-pointer w-7.5 h-7.5"
+                className="flex items-center justify-center min-h-[36px] min-w-[36px] bg-slate-850 hover:bg-slate-800 text-slate-300 rounded-xl transition border border-slate-800 cursor-pointer"
                 title="Exit Party"
               >
-                <LogOut size={11.5} />
+                <LogOut size={13} />
               </button>
             </div>
           </div>
@@ -215,47 +217,47 @@ const Room = () => {
             !isSidebarOpen ? 'md:hidden' : ''
           }`}>
             {/* Tab Bar Selector */}
-            <div className="flex bg-slate-900/60 p-1.5 rounded-2xl border border-slate-800/80 font-bold text-xs gap-1.5 shadow-inner shrink-0 font-sans">
+            <div className="flex bg-slate-900/60 p-1 rounded-2xl border border-slate-800/80 font-bold text-xs gap-1 shadow-inner shrink-0 font-sans">
               <button
                 onClick={() => setActiveTab('chat')}
-                className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer relative ${
+                className={`flex-1 py-2.5 min-h-[40px] rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer relative ${
                   activeTab === 'chat' 
                     ? 'bg-slate-800 text-white border border-slate-700/40 shadow-md' 
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <MessageSquare size={13} />
+                <MessageSquare size={14} />
                 <span>Chat</span>
                 {mentionCount > 0 && activeTab !== 'chat' ? (
-                  <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-extrabold text-[9px] px-1.5 py-0.5 rounded-full flex items-center justify-center animate-pulse border border-slate-900 shadow">
+                  <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-slate-950 font-extrabold text-[9px] px-1.5 py-0.5 rounded-full flex items-center justify-center animate-pulse border border-slate-900 shadow">
                     @{mentionCount}
                   </span>
                 ) : unreadCount > 0 && activeTab !== 'chat' ? (
-                  <span className="absolute -top-1 -right-1 bg-youtube-red text-white font-extrabold text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center border border-slate-900 shadow">
+                  <span className="absolute -top-1.5 -right-1.5 bg-youtube-red text-white font-extrabold text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center border border-slate-900 shadow">
                     {unreadCount}
                   </span>
                 ) : null}
               </button>
               <button
                 onClick={() => setActiveTab('queue')}
-                className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-2.5 min-h-[40px] rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
                   activeTab === 'queue' 
                     ? 'bg-slate-800 text-white border border-slate-700/40 shadow-md' 
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <ListVideo size={13} />
+                <ListVideo size={14} />
                 <span>Queue</span>
               </button>
               <button
                 onClick={() => setActiveTab('watchers')}
-                className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-2.5 min-h-[40px] rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
                   activeTab === 'watchers' 
                     ? 'bg-slate-800 text-white border border-slate-700/40 shadow-md' 
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <Users size={13} />
+                <Users size={14} />
                 <span>People</span>
               </button>
             </div>
@@ -273,7 +275,7 @@ const Room = () => {
       {/* Mobile Stream Controller Drawer Modal */}
       <AnimatePresence>
         {isMobile && isHeaderOpen && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 no-overscroll">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -287,12 +289,12 @@ const Room = () => {
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl relative z-10 pointer-events-auto"
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 pb-6 shadow-2xl relative z-10 pointer-events-auto safe-area-bottom"
             >
               {/* Drag Handle Bar */}
               <div 
-                className="w-12 h-1 bg-slate-800 rounded-full mx-auto mb-4 cursor-pointer sm:hidden" 
+                className="w-12 h-1 bg-slate-800 rounded-full mx-auto mb-4 cursor-pointer sm:hidden min-h-[4px]" 
                 onClick={() => setIsHeaderOpen(false)} 
               />
               
@@ -302,10 +304,10 @@ const Room = () => {
                 </h3>
                 <button 
                   onClick={() => setIsHeaderOpen(false)}
-                  className="text-slate-400 hover:text-white p-1 cursor-pointer"
+                  className="text-slate-400 hover:text-white p-2 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer"
                   title="Close Controls"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
 

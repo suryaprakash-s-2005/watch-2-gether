@@ -22,12 +22,12 @@ const QueueList = () => {
   };
 
   return (
-    <div className="glass-panel rounded-3xl p-6 flex flex-col h-full border border-slate-800/80">
+    <div className="glass-panel rounded-3xl p-4 md:p-6 flex flex-col h-full border border-slate-800/80">
       {}
-      <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-800/60">
+      <div className="flex items-center justify-between pb-3 md:pb-4 mb-3 md:mb-4 border-b border-slate-800/60">
         <div className="flex items-center gap-2">
-          <ListVideo size={18} className="text-youtube-red" />
-          <h3 className="font-bold text-white text-base">Video Requests</h3>
+          <ListVideo size={16} className="text-youtube-red" />
+          <h3 className="font-bold text-white text-sm md:text-base">Video Requests</h3>
         </div>
         <span className="bg-youtube-red/10 text-youtube-red text-[11px] font-bold px-2 py-0.5 rounded-full">
           {queue.length}
@@ -35,7 +35,7 @@ const QueueList = () => {
       </div>
 
       {/* Requests list container */}
-      <div className="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0 md:min-h-[280px] max-h-none md:max-h-[420px] lg:max-h-[500px] xl:max-h-[600px]">
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0 max-h-full no-overscroll">
         {queue.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-500 text-sm gap-2">
             <div className="p-3 bg-slate-800/30 rounded-full text-slate-600">
@@ -69,17 +69,17 @@ const QueueList = () => {
                   <>
                     <button
                       onClick={() => handlePlayItem(item._id)}
-                      className="p-2 bg-youtube-red/15 hover:bg-youtube-red/25 border border-youtube-red/20 text-youtube-red hover:scale-105 active:scale-95 rounded-xl transition-all duration-150"
+                      className="min-w-[36px] min-h-[36px] flex items-center justify-center bg-youtube-red/15 hover:bg-youtube-red/25 border border-youtube-red/20 text-youtube-red hover:scale-105 active:scale-95 rounded-xl transition-all duration-150"
                       title="Approve and Play Video"
                     >
-                      <Play size={12} fill="currentColor" />
+                      <Play size={14} fill="currentColor" />
                     </button>
                     <button
                       onClick={() => handleRemoveItem(item._id)}
-                      className="p-2 bg-slate-800 hover:bg-slate-750 border border-slate-700/50 text-slate-400 hover:text-slate-250 hover:scale-105 active:scale-95 rounded-xl transition-all duration-150"
+                      className="min-w-[36px] min-h-[36px] flex items-center justify-center bg-slate-800 hover:bg-slate-750 border border-slate-700/50 text-slate-400 hover:text-slate-250 hover:scale-105 active:scale-95 rounded-xl transition-all duration-150"
                       title="Deny and Remove Request"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={14} />
                     </button>
                   </>
                 ) : (

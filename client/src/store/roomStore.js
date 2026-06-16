@@ -92,8 +92,13 @@ const useRoomStore = create((set) => ({
     set((state) => ({ chatMessages: [...state.chatMessages, message] }));
   },
 
-  setChatHistory: (messages) => {
-    set({ chatMessages: messages });
+  setChatHistory: (updater) => {
+    set((state) => {
+      const newMessages = typeof updater === 'function'
+        ? updater(state.chatMessages)
+        : updater;
+      return { chatMessages: newMessages };
+    });
   },
 
   updateRoomPlayback: (playbackState) => {

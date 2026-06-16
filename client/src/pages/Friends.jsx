@@ -25,12 +25,17 @@ const Friends = () => {
   const [selectedFriend, setSelectedFriend] = useState(null);
   const bubbleContainerRef = useRef(null);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
-  const [now] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -123,9 +128,9 @@ const Friends = () => {
         {/* Left Side: Friends List, Requests & Suggestions (8 columns on lg) */}
         <div className="lg:col-span-7 flex flex-col gap-6">
           {/* Add Friend Box */}
-          <div className="glass-panel p-6 rounded-3xl border border-slate-800 hover:border-slate-750 transition duration-300 relative z-20">
-            <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-              <UserPlus className="text-youtube-red" size={20} />
+          <div className="glass-panel p-5 md:p-6 rounded-3xl border border-slate-800 hover:border-slate-750 transition duration-300 relative z-20">
+            <h2 className="text-base md:text-lg font-bold text-white mb-3 flex items-center gap-2">
+              <UserPlus className="text-youtube-red" size={18} />
               Add Friend by Username
             </h2>
             <form onSubmit={handleAddFriend} className="flex flex-col sm:flex-row gap-2 relative w-full">
@@ -135,7 +140,7 @@ const Friends = () => {
                   value={searchUsername}
                   onChange={(e) => setSearchUsername(e.target.value)}
                   placeholder="Enter the username"
-                  className="glass-input px-4 py-3 rounded-xl w-full text-sm focus:ring-2 focus:ring-youtube-red focus:outline-none"
+                  className="glass-input px-4 py-3.5 md:py-3 rounded-xl w-full text-sm focus:ring-2 focus:ring-youtube-red focus:outline-none"
                   disabled={searchLoading}
                   onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
                   onBlur={() => { 
@@ -220,7 +225,7 @@ const Friends = () => {
               <button
                 type="submit"
                 disabled={searchLoading || !searchUsername.trim()}
-                className="w-full sm:w-auto bg-youtube-red hover:bg-youtube-hover disabled:opacity-55 text-white font-bold py-2.5 px-5 rounded-xl transition flex items-center justify-center gap-2 text-sm h-fit shrink-0"
+                className="w-full sm:w-auto bg-youtube-red hover:bg-youtube-hover disabled:opacity-55 text-white font-bold py-3 md:py-2.5 px-5 rounded-xl transition flex items-center justify-center gap-2 text-sm h-fit shrink-0 min-h-[44px]"
               >
                 {searchLoading ? 'Sending...' : 'Send Request'}
                 <Send size={14} />
@@ -248,27 +253,27 @@ const Friends = () => {
           {/* Main Friends Management Card */}
           <div className="glass-panel rounded-3xl border border-slate-800 flex flex-col flex-1 overflow-hidden">
             {/* Tabs */}
-            <div className="flex flex-wrap border-b border-slate-800 bg-slate-900/40 p-2 gap-1.5">
+            <div className="flex border-b border-slate-800 bg-slate-900/40 p-1.5 gap-1">
               <button
                 onClick={() => setActiveTab('all')}
-                className={`flex-1 sm:flex-none justify-center px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                className={`flex-1 justify-center py-2.5 md:py-2.5 rounded-xl text-[11px] md:text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer min-h-[40px] ${
                   activeTab === 'all' 
                     ? 'bg-slate-800 text-white border border-slate-700/50 shadow-sm' 
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <Users size={14} />
+                <Users size={13} />
                 <span>Friends ({friends.length})</span>
               </button>
               <button
                 onClick={() => setActiveTab('pending')}
-                className={`flex-1 sm:flex-none justify-center px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 relative cursor-pointer ${
+                className={`flex-1 justify-center py-2.5 md:py-2.5 rounded-xl text-[11px] md:text-xs font-bold transition flex items-center justify-center gap-1.5 relative cursor-pointer min-h-[40px] ${
                   activeTab === 'pending' 
                     ? 'bg-slate-800 text-white border border-slate-700/50 shadow-sm' 
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <MessageCircle size={14} />
+                <MessageCircle size={13} />
                 <span>Requests</span>
                 {pendingIncoming.length > 0 && (
                   <span className="absolute -top-1.5 -right-1 bg-youtube-red text-white text-[9px] font-extrabold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce">
@@ -278,13 +283,13 @@ const Friends = () => {
               </button>
               <button
                 onClick={() => setActiveTab('suggestions')}
-                className={`flex-1 sm:flex-none justify-center px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                className={`flex-1 justify-center py-2.5 md:py-2.5 rounded-xl text-[11px] md:text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer min-h-[40px] ${
                   activeTab === 'suggestions' 
                     ? 'bg-slate-800 text-white border border-slate-700/50 shadow-sm' 
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <Sparkles size={14} />
+                <Sparkles size={13} />
                 <span>Suggestions</span>
               </button>
             </div>
@@ -316,31 +321,31 @@ const Friends = () => {
                         friends.map(friend => (
                           <div 
                             key={friend._id}
-                            className="flex items-center justify-between p-3.5 bg-slate-900/50 rounded-2xl border border-slate-800 hover:border-slate-750 transition duration-200 group"
+                            className="flex items-center justify-between p-3 md:p-3.5 bg-slate-900/50 rounded-2xl border border-slate-800 hover:border-slate-750 transition duration-200 group"
                           >
                             <div 
-                              className="flex items-center gap-3.5 cursor-pointer"
+                              className="flex items-center gap-3 md:gap-3.5 cursor-pointer flex-1 min-w-0"
                               onClick={() => navigate(`/profile/${friend.username}`)}
                             >
-                              <div className="relative">
+                              <div className="relative shrink-0">
                                 <img 
                                   src={friend.avatar} 
                                   alt={friend.displayName} 
-                                  className="w-11 h-11 rounded-full object-cover border border-slate-800 bg-slate-950"
+                                  className="w-10 md:w-11 h-10 md:h-11 rounded-full object-cover border border-slate-800 bg-slate-950"
                                 />
-                                <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${
+                                <div className={`absolute bottom-0 right-0 w-2.5 md:w-3 h-2.5 md:h-3 rounded-full border-2 border-slate-900 ${
                                   formatLastSeen(friend.lastSeen) === 'Online' ? 'bg-emerald-500' : 'bg-slate-500'
                                 }`}></div>
                               </div>
-                              <div>
-                                <h4 className="text-sm font-bold text-white group-hover:text-youtube-red transition-colors">{friend.displayName}</h4>
-                                <p className="text-[11px] text-slate-400">@{friend.username} • {friend.hoursTogether}h watched together</p>
+                              <div className="min-w-0">
+                                <h4 className="text-xs md:text-sm font-bold text-white group-hover:text-youtube-red transition-colors truncate">{friend.displayName}</h4>
+                                <p className="text-[10px] md:text-[11px] text-slate-400 truncate">@{friend.username} • {friend.hoursTogether}h watched together</p>
                               </div>
                             </div>
                             
                             <button
                               onClick={() => removeFriend(friend._id)}
-                              className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-red-500/10 text-slate-400 hover:text-red-400 border border-slate-700/50 hover:border-red-500/20 transition cursor-pointer"
+                              className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-800/80 hover:bg-red-500/10 text-slate-400 hover:text-red-400 border border-slate-700/50 hover:border-red-500/20 transition cursor-pointer shrink-0 ml-2"
                               title="Remove Friend"
                             >
                               <Trash2 size={14} />
@@ -369,25 +374,25 @@ const Friends = () => {
                             {pendingIncoming.map(req => (
                               <div key={req.friendshipId} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-2xl border border-slate-850">
                                 <div 
-                                  className="flex items-center gap-3 cursor-pointer"
+                                  className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
                                   onClick={() => navigate(`/profile/${req.user.username}`)}
                                 >
-                                  <img src={req.user.avatar} alt={req.user.displayName} className="w-9 h-9 rounded-full object-cover border border-slate-850" />
-                                  <div>
-                                    <h4 className="text-xs font-bold text-white">{req.user.displayName}</h4>
-                                    <p className="text-[10px] text-slate-400">@{req.user.username}</p>
+                                  <img src={req.user.avatar} alt={req.user.displayName} className="w-9 h-9 rounded-full object-cover border border-slate-850 shrink-0" />
+                                  <div className="min-w-0">
+                                    <h4 className="text-xs font-bold text-white truncate">{req.user.displayName}</h4>
+                                    <p className="text-[10px] text-slate-400 truncate">@{req.user.username}</p>
                                   </div>
                                 </div>
-                                <div className="flex gap-1.5">
+                                <div className="flex gap-1.5 shrink-0 ml-2">
                                   <button
                                     onClick={() => acceptRequest(req.user._id)}
-                                    className="p-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] transition flex items-center gap-1 shadow-sm"
+                                    className="min-h-[36px] px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] transition flex items-center gap-1 shadow-sm"
                                   >
                                     <Check size={12} /> Accept
                                   </button>
                                   <button
                                     onClick={() => rejectRequest(req.user._id)}
-                                    className="p-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 font-medium text-[10px] border border-slate-700/60 transition flex items-center gap-1"
+                                    className="min-h-[36px] px-3 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 font-medium text-[10px] border border-slate-700/60 transition flex items-center gap-1"
                                   >
                                     <X size={12} /> Decline
                                   </button>
@@ -446,15 +451,15 @@ const Friends = () => {
                         </div>
                       ) : (
                         suggestions.map(sug => (
-                          <div key={sug.user._id} className="flex items-center justify-between p-3.5 bg-slate-900/50 rounded-2xl border border-slate-800">
+                          <div key={sug.user._id} className="flex items-center justify-between p-3 md:p-3.5 bg-slate-900/50 rounded-2xl border border-slate-800">
                             <div 
-                              className="flex items-center gap-3 cursor-pointer"
+                              className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
                               onClick={() => navigate(`/profile/${sug.user.username}`)}
                             >
-                              <img src={sug.user.avatar} alt={sug.user.displayName} className="w-10 h-10 rounded-full object-cover border border-slate-850" />
-                              <div>
-                                <h4 className="text-xs font-bold text-white">{sug.user.displayName}</h4>
-                                <p className="text-[10px] text-slate-400">@{sug.user.username}</p>
+                              <img src={sug.user.avatar} alt={sug.user.displayName} className="w-9 md:w-10 h-9 md:h-10 rounded-full object-cover border border-slate-850 shrink-0" />
+                              <div className="min-w-0">
+                                <h4 className="text-xs font-bold text-white truncate">{sug.user.displayName}</h4>
+                                <p className="text-[10px] text-slate-400 truncate">@{sug.user.username}</p>
                                 <div className="flex flex-wrap gap-1 mt-1">
                                   {sug.reasons.slice(0, 2).map((r, i) => (
                                     <span key={i} className="text-[9px] font-semibold bg-slate-800/80 text-sky-400 px-1.5 py-0.5 rounded border border-slate-750/30">
@@ -467,7 +472,7 @@ const Friends = () => {
                             
                             <button
                               onClick={() => sendRequest(null, sug.user._id)}
-                              className="p-2 px-3 rounded-lg bg-youtube-red hover:bg-youtube-hover text-white font-bold text-[10px] transition shadow-sm"
+                              className="min-h-[36px] px-3 rounded-lg bg-youtube-red hover:bg-youtube-hover text-white font-bold text-[10px] transition shadow-sm shrink-0 ml-2"
                             >
                               Add Friend
                             </button>

@@ -3,7 +3,7 @@ import User from '../models/User.js';
 
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'defaultjwtsecretkey', {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: '30d',
   });
 };
@@ -32,6 +32,9 @@ export const getMe = async (req, res) => {
 
 
 export const devLogin = async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ message: 'Not available in production' });
+  }
   const { username } = req.body;
   if (!username) {
     return res.status(400).json({ message: 'Username is required' });

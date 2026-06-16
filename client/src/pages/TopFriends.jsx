@@ -18,9 +18,9 @@ const TopFriends = () => {
   const top3 = topFriends.slice(0, 3);
   
   const podiumLayout = [];
-  if (top3[1]) podiumLayout.push({ friend: top3[1], rank: 2, color: 'border-slate-400 bg-slate-800/40 text-slate-300', podiumHeight: 'h-28 sm:h-40', glow: 'shadow-slate-400/10' });
-  if (top3[0]) podiumLayout.push({ friend: top3[0], rank: 1, color: 'border-yellow-500 bg-yellow-500/10 text-yellow-500', podiumHeight: 'h-36 sm:h-48', glow: 'shadow-yellow-500/15' });
-  if (top3[2]) podiumLayout.push({ friend: top3[2], rank: 3, color: 'border-amber-700 bg-amber-800/10 text-amber-600', podiumHeight: 'h-20 sm:h-32', glow: 'shadow-amber-700/10' });
+  if (top3[1]) podiumLayout.push({ friend: top3[1], rank: 2, color: 'border-slate-400 bg-slate-800/40 text-slate-300', podiumHeight: 'h-24 sm:h-28 md:h-40', glow: 'shadow-slate-400/10' });
+  if (top3[0]) podiumLayout.push({ friend: top3[0], rank: 1, color: 'border-yellow-500 bg-yellow-500/10 text-yellow-500', podiumHeight: 'h-32 sm:h-36 md:h-48', glow: 'shadow-yellow-500/15' });
+  if (top3[2]) podiumLayout.push({ friend: top3[2], rank: 3, color: 'border-amber-700 bg-amber-800/10 text-amber-600', podiumHeight: 'h-16 sm:h-20 md:h-32', glow: 'shadow-amber-700/10' });
 
   const listFriends = topFriends.slice(3);
 
@@ -66,7 +66,7 @@ const TopFriends = () => {
             ) : (
               <>
                 {/* Podium visualization */}
-                <div className="flex items-end justify-center gap-2.5 sm:gap-6 pt-12 border-b border-slate-800/60 pb-8">
+                <div className="flex items-end justify-center gap-2 sm:gap-6 pt-8 md:pt-12 border-b border-slate-800/60 pb-6 md:pb-8">
                   {podiumLayout.map(({ friend, rank, color, podiumHeight, glow }) => (
                     <motion.div 
                       key={friend._id}

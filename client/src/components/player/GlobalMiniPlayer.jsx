@@ -174,6 +174,11 @@ const GlobalMiniPlayer = () => {
       seekTo(time);
       updateRoomPlayback({ currentTime: time });
 
+    } else if (type === 'change') {
+      setIsPlaying(false);
+      seekTo(0);
+      updateRoomPlayback({ currentTime: 0, isPlaying: false });
+
     } else if (type === 'sync' || type === 'drift-sync') {
       const localTime = getCurrentTime();
       const diff = localTime - time; // positive if local is ahead, negative if behind
@@ -183,18 +188,15 @@ const GlobalMiniPlayer = () => {
         // Local is ahead of incoming room state
         if (diff < 3) {
           // Ignore sync, do not seek backwards
-          console.log(`Ignoring sync: local is ahead by ${diff.toFixed(2)}s (threshold < 3s)`);
           if (isPlaying !== isRoomPlaying) {
             setIsPlaying(isRoomPlaying);
           }
         } else if (diff <= 5) {
-          console.log(`Ignoring sync: local is ahead by ${diff.toFixed(2)}s (threshold <= 5s)`);
           if (isPlaying !== isRoomPlaying) {
             setIsPlaying(isRoomPlaying);
           }
         } else {
           // diff > 5, apply correction (seek back)
-          console.log(`Applying sync correction: local is ahead by ${diff.toFixed(2)}s (threshold > 5s)`);
           suppress(1200);
           setIsPlaying(isRoomPlaying);
           seekTo(time);
@@ -204,7 +206,6 @@ const GlobalMiniPlayer = () => {
         // Local is behind incoming room state
         const absDiff = Math.abs(diff);
         if (absDiff > 3) {
-          console.log(`Applying sync correction: local is behind by ${absDiff.toFixed(2)}s`);
           suppress(1200);
           setIsPlaying(isRoomPlaying);
           seekTo(time);
@@ -239,7 +240,6 @@ const GlobalMiniPlayer = () => {
 
     // Ignore pause events triggered by browser auto-suspending video when backgrounded/screen locked
     if (typeof document !== 'undefined' && document.hidden) {
-      console.log('Ignoring background auto-pause');
       return;
     }
 
@@ -279,7 +279,6 @@ const GlobalMiniPlayer = () => {
       if (typeof document === 'undefined') return;
       if (document.hidden) return; // Only trigger on foreground transition
 
-      console.log('App returned to foreground, checking playback status...');
       const player = playerRef.current;
       if (!player) return;
 
@@ -291,17 +290,13 @@ const GlobalMiniPlayer = () => {
         playerState = internalPlayer.getPlayerState();
       }
 
-      console.log(`Visibility recovery check - playerState: ${playerState}`);
-
       // 1. If playback never stopped (state is 1 / PLAYING), do nothing
       if (playerState === 1) {
-        console.log('App returned to foreground: Playback is already active. Doing nothing.');
         return;
       }
 
       // 2. Only recover if playback was genuinely interrupted (Host only, guests are handled via socket syncs)
       if (isHost && currentRoom?.isPlaying && isSynced) {
-        console.log('App returned to foreground (Host): Playback was interrupted. Recovering state.');
         suppress(2000);
         setIsPlaying(true);
         
@@ -384,11 +379,11 @@ const GlobalMiniPlayer = () => {
         bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
         left: '12px',
         width: 'calc(100% - 24px)',
-        height: '64px',
+        height: '72px',
         zIndex: 50,
         borderRadius: '1rem',
         overflow: 'hidden',
-        boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+        boxShadow: '0 -4px 24px rgba(0,0,0,0.4), 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)',
       }
     : {
         // Desktop / Tablet floating mini player
