@@ -94,7 +94,7 @@ export const roomSocketHandler = (io) => {
           let currentTime = room.currentTime;
           if (room.isPlaying && room.lastStateChange) {
             const elapsed = (Date.now() - new Date(room.lastStateChange).getTime()) / 1000;
-            currentTime += elapsed;
+            currentTime += elapsed * (room.playbackRate || 1);
           }
 
           socket.emit('room-state', {
@@ -159,11 +159,11 @@ export const roomSocketHandler = (io) => {
 
         const room = await Room.findOneAndUpdate(
           { roomCode: code },
-          { currentVideo: videoId, currentVideoTitle: title, currentTime: 0, isPlaying: false, lastStateChange: new Date() },
+          { $set: { currentVideo: videoId, currentVideoTitle: title, currentTime: 0, isPlaying: false, lastStateChange: new Date() }, $inc: { syncVersion: 1 } },
           { new: true }
         );
 
-        io.to(code).emit('video-change', { videoId });
+        io.to(code).emit('video-change', { videoId, syncVersion: room.syncVersion });
 
         const systemMsg = await Message.create({
           roomId: room._id,
@@ -318,7 +318,7 @@ export const roomSocketHandler = (io) => {
             await room.save();
             success = true;
 
-            io.to(code).emit('video-change', { videoId });
+            io.to(code).emit('video-change', { videoId, syncVersion: room.syncVersion });
             io.to(code).emit('video-play', { currentTime: 0, syncVersion: room.syncVersion });
             io.to(code).emit('queue-updated', { queue: room.queue });
 
@@ -364,6 +364,37 @@ export const roomSocketHandler = (io) => {
             playbackRate: room.playbackRate || 1
           });
         }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    // Allow any user to request a fresh sync of the current room state
+    socket.on('request-sync', async () => {
+      const code = socket.roomCode;
+      if (!code) return;
+
+      try {
+        const room = await Room.findOne({ roomCode: code });
+        if (!room) return;
+
+        let currentTime = room.currentTime;
+        if (room.isPlaying && room.lastStateChange) {
+          const elapsed = (Date.now() - new Date(room.lastStateChange).getTime()) / 1000;
+          currentTime += elapsed * (room.playbackRate || 1);
+        }
+
+        socket.emit('room-state', {
+          currentVideo: room.currentVideo,
+          currentTime,
+          isPlaying: room.isPlaying,
+          hostId: room.hostId,
+          guestControlEnabled: room.guestControlEnabled,
+          users: room.users,
+          syncVersion: room.syncVersion,
+          queue: room.queue || [],
+          playbackRate: room.playbackRate || 1
+        });
       } catch (err) {
         console.error(err);
       }
@@ -669,13 +700,18 @@ export const roomSocketHandler = (io) => {
         const roomSockets = io.sockets.adapter.rooms.get(room.roomCode);
         if (!roomSockets || roomSockets.size === 0) continue;
 
-        const elapsed = (Date.now() - new Date(room.lastStateChange).getTime()) / 1000;
-        const estimatedTime = room.currentTime + elapsed;
+        // Re-fetch room freshest data - another event may have changed syncVersion since find()
+        const freshRoom = await Room.findById(room._id).lean();
+        if (!freshRoom || !freshRoom.isPlaying) continue;
+
+        const elapsed = (Date.now() - new Date(freshRoom.lastStateChange).getTime()) / 1000;
+        const rate = freshRoom.playbackRate || 1;
+        const estimatedTime = freshRoom.currentTime + elapsed * rate;
 
         
         const hostSocketId = [...roomSockets].find((sid) => {
           const s = io.sockets.sockets.get(sid);
-          return s && s.user && s.user._id.toString() === room.hostId.toString();
+          return s && s.user && s.user._id.toString() === freshRoom.hostId.toString();
         });
 
         if (hostSocketId) {
@@ -685,9 +721,9 @@ export const roomSocketHandler = (io) => {
             if (guestSocket) {
               guestSocket.emit('video-sync', {
                 currentTime: estimatedTime,
-                syncVersion: room.syncVersion,
+                syncVersion: freshRoom.syncVersion,
                 isPlaying: true,
-                playbackRate: room.playbackRate || 1
+                playbackRate: freshRoom.playbackRate || 1
               });
             }
           }

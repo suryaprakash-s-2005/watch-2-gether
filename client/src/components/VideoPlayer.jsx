@@ -1,13 +1,15 @@
 import { useEffect, useRef } from 'react';
 import useRoomStore from '../store/roomStore';
 import useAuthStore from '../store/authStore';
+import useSocketStore from '../store/socketStore';
 import useGlobalPlayer from '../hooks/useGlobalPlayer';
 import { Tv } from 'lucide-react';
 
 const VideoPlayer = () => {
-  const { currentRoom, setPlaybackCommand } = useRoomStore();
+  const { currentRoom } = useRoomStore();
   const { user } = useAuthStore();
-  const { isSynced, setIsSynced, setIsPlaying, setSlotRect, currentTime, hasSyncedInitial, setHasSyncedInitial } = useGlobalPlayer();
+  const { emitRequestSync } = useSocketStore();
+  const { isSynced, setIsSynced, setIsPlaying, setSlotRect, hasSyncedInitial, setHasSyncedInitial } = useGlobalPlayer();
 
   const containerRef = useRef(null);
 
@@ -68,14 +70,9 @@ const VideoPlayer = () => {
     setIsSynced(true);
     setHasSyncedInitial(true);
     setIsPlaying(true);
-    if (currentRoom) {
-      const syncTime = currentTime > 0 ? currentTime : (currentRoom.currentTime || 0);
-      setPlaybackCommand({
-        type: 'sync',
-        time: syncTime,
-        isPlaying: true,
-      });
-    }
+    // Request the current server state so the response will trigger a fresh
+    // room-state → playbackCommand with the accurate time and syncVersion.
+    emitRequestSync();
   };
 
   return (

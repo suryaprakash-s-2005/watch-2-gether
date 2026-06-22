@@ -68,13 +68,14 @@ const useSocketStore = create((set, get) => ({
           playbackRate: state.playbackRate
         });
 
+        // Mark initial sync as ready for guests, but don't force isSynced yet.
+        // The playbackCommand handler will set isSynced after successful positioning.
         const currentUser = useAuthStore.getState().user;
         if (currentUser && state.hostId) {
           const hostIdStr = String(state.hostId._id || state.hostId);
           const userIdStr = String(currentUser._id);
           if (hostIdStr !== userIdStr) {
             const player = usePlayerStore.getState();
-            player.setIsSynced(true);
             player.setHasSyncedInitial(true);
           }
         }
@@ -145,9 +146,10 @@ const useSocketStore = create((set, get) => ({
       roomStore.updateRoomPlayback({
         currentVideo: data.videoId,
         currentTime: 0,
-        isPlaying: false
+        isPlaying: false,
+        syncVersion: data.syncVersion
       });
-      roomStore.setPlaybackCommand({ type: 'change', videoId: data.videoId });
+      roomStore.setPlaybackCommand({ type: 'change', videoId: data.videoId, syncVersion: data.syncVersion });
     });
 
     socketInstance.on('video-play', (data) => {
@@ -341,6 +343,11 @@ const useSocketStore = create((set, get) => ({
   emitVideoPlaybackRate: (playbackRate) => {
     const { socket } = get();
     if (socket) socket.emit('video-playback-rate', { playbackRate });
+  },
+
+  emitRequestSync: () => {
+    const { socket } = get();
+    if (socket) socket.emit('request-sync');
   }
 }));
 

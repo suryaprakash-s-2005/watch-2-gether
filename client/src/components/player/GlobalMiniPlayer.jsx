@@ -18,7 +18,7 @@ const isYoutubeUrl = (url) => {
 const PLAYER_CONFIG = {
   youtube: {
     playerVars: {
-      autoplay: 0,
+      autoplay: 1,
       modestbranding: 1,
       rel: 0,
       showinfo: 0,
@@ -50,6 +50,7 @@ const GlobalMiniPlayer = () => {
     setIsMuted,
     setPlaybackRate,
     setIsMiniPlayer,
+    setIsSynced,
     setSyncStatus,
     emitVideoEnded,
     emitVideoPlaybackRate,
@@ -97,19 +98,12 @@ const GlobalMiniPlayer = () => {
     if (currentVideoId) {
       lastSyncedVideoId.current = currentVideoId;
       suppress(2000);
-      
+
       const roomPlaybackRate = currentRoom?.playbackRate || 1;
       applyPlaybackRate(roomPlaybackRate);
 
-      const shouldPlay = currentRoom ? currentRoom.isPlaying : false;
-      if (isHost || !shouldPlay) {
-        setIsPlaying(shouldPlay);
-      } else {
-        setIsPlaying(false);
-      }
-      if (currentRoom) {
-        seekTo(currentRoom.currentTime);
-      }
+      // Initial seek and play state are handled by the playbackCommand handler.
+      // Skipping them here avoids a race with the command-effect that runs when isReady becomes true.
     }
   };
 
@@ -185,6 +179,7 @@ const GlobalMiniPlayer = () => {
       setIsPlaying(true);
       seekTo(time);
       updateRoomPlayback({ isPlaying: true, currentTime: time });
+      setIsSynced(true);
       setSyncStatus('synced');
 
     } else if (type === 'pause') {
@@ -192,18 +187,23 @@ const GlobalMiniPlayer = () => {
       setIsPlaying(false);
       seekTo(time);
       updateRoomPlayback({ isPlaying: false, currentTime: time });
+      setIsSynced(true);
       setSyncStatus('synced');
 
     } else if (type === 'seek') {
       suppress(1200);
       seekTo(time);
       updateRoomPlayback({ currentTime: time });
+      setIsSynced(true);
       setSyncStatus('synced');
 
     } else if (type === 'change') {
+      suppress(1200);
       setIsPlaying(false);
+      setIsSynced(false);
       seekTo(0);
       updateRoomPlayback({ currentTime: 0, isPlaying: false });
+      setIsSynced(true);
       setSyncStatus('synced');
 
     } else if (type === 'rate') {
@@ -235,13 +235,16 @@ const GlobalMiniPlayer = () => {
           if (isPlaying !== isRoomPlaying) {
             setIsPlaying(isRoomPlaying);
           }
+          setIsSynced(true);
         } else if (diff <= 5) {
           if (isPlaying !== isRoomPlaying) {
             setIsPlaying(isRoomPlaying);
           }
+          setIsSynced(true);
         } else {
           suppress(1200);
           setIsPlaying(isRoomPlaying);
+          setIsSynced(true);
           seekTo(time);
           updateRoomPlayback({ isPlaying: isRoomPlaying, currentTime: time });
         }
@@ -249,18 +252,20 @@ const GlobalMiniPlayer = () => {
         if (absDiff > 3) {
           suppress(1200);
           setIsPlaying(isRoomPlaying);
+          setIsSynced(true);
           seekTo(time);
           updateRoomPlayback({ isPlaying: isRoomPlaying, currentTime: time });
         } else {
           if (isPlaying !== isRoomPlaying) {
             setIsPlaying(isRoomPlaying);
           }
+          setIsSynced(true);
         }
       }
     }
 
     setPlaybackCommand(null);
-  }, [playbackCommand, isValidYoutube, isReady, isPlaying, setIsPlaying, setPlaybackCommand, updateRoomPlayback, setSyncStatus, applyPlaybackRate]);
+  }, [playbackCommand, isValidYoutube, isReady, isPlaying, setIsPlaying, setIsSynced, setPlaybackCommand, updateRoomPlayback, setSyncStatus, applyPlaybackRate]);
 
   // Handle player events and report them
   const handlePlay = () => {
@@ -311,9 +316,7 @@ const GlobalMiniPlayer = () => {
   const handlePlaybackRateChange = (newRate) => {
     if (!hasControl) return;
     applyPlaybackRate(newRate);
-    if (isHost) {
-      emitVideoPlaybackRate(newRate);
-    }
+    emitVideoPlaybackRate(newRate);
     updateRoomPlayback({ playbackRate: newRate });
   };
 
