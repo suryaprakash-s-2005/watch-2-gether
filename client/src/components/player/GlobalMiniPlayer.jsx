@@ -64,6 +64,7 @@ const GlobalMiniPlayer = () => {
   const dragConstraintsRef = useRef(null);
   const localVersionRef = useRef(0);
   const suppressUntil = useRef(0);
+  const isDraggingRef = useRef(false);
   const localPlaybackRateRef = useRef(1);
   const [duration, setDuration] = useState(0);
   const [localVolume, setLocalVolume] = useState(volume);
@@ -91,20 +92,40 @@ const GlobalMiniPlayer = () => {
     if (!progressRef.current || duration <= 0) return;
     const rect = progressRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
-    handleSeekTo(x * duration);
+    const time = x * duration;
+    seekTo(time);
+    setCurrentTime(time);
+    isDraggingRef.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const handleProgressBarPointerMove = (e) => {
     if (!progressRef.current || duration <= 0) return;
     const rect = progressRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
+    const time = x * duration;
     setSeekHoverPos(x);
-    setSeekHoverTime(x * duration);
+    setSeekHoverTime(time);
     setIsHoveringSeek(true);
+    if (isDraggingRef.current) {
+      seekTo(time);
+      setCurrentTime(time);
+    }
+  };
+
+  const handleProgressBarPointerUp = (e) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    if (duration <= 0) return;
+    const rect = progressRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
+    handleSeek(x * duration);
   };
 
   const handleProgressBarPointerLeave = () => {
-    setIsHoveringSeek(false);
+    if (!isDraggingRef.current) {
+      setIsHoveringSeek(false);
+    }
   };
 
   const [prevVideoId, setPrevVideoId] = useState(currentVideoId);
@@ -211,6 +232,7 @@ const GlobalMiniPlayer = () => {
       suppress(1200);
       setIsPlaying(true);
       seekTo(time);
+      setCurrentTime(time);
       updateRoomPlayback({ isPlaying: true, currentTime: time });
       setIsSynced(true);
       setSyncStatus('synced');
@@ -219,6 +241,7 @@ const GlobalMiniPlayer = () => {
       suppress(1200);
       setIsPlaying(false);
       seekTo(time);
+      setCurrentTime(time);
       updateRoomPlayback({ isPlaying: false, currentTime: time });
       setIsSynced(true);
       setSyncStatus('synced');
@@ -226,6 +249,7 @@ const GlobalMiniPlayer = () => {
     } else if (type === 'seek') {
       suppress(1200);
       seekTo(time);
+      setCurrentTime(time);
       updateRoomPlayback({ currentTime: time });
       setIsSynced(true);
       setSyncStatus('synced');
@@ -235,6 +259,7 @@ const GlobalMiniPlayer = () => {
       setIsPlaying(false);
       setIsSynced(false);
       seekTo(0);
+      setCurrentTime(0);
       updateRoomPlayback({ currentTime: 0, isPlaying: false });
       setIsSynced(true);
       setSyncStatus('synced');
@@ -266,6 +291,7 @@ const GlobalMiniPlayer = () => {
       if (absDiff >= 2) {
         suppress(1200);
         seekTo(time);
+        setCurrentTime(time);
         updateRoomPlayback({ isPlaying: isRoomPlaying, currentTime: time });
       }
       if (isPlaying !== isRoomPlaying) {
@@ -437,6 +463,7 @@ const GlobalMiniPlayer = () => {
 
   const handleSeekTo = (time) => {
     seekTo(time);
+    setCurrentTime(time);
     handleSeek(time);
   };
 
@@ -536,9 +563,7 @@ const GlobalMiniPlayer = () => {
               onEnded={handleEnded}
               onDuration={(d) => setDuration(d)}
               onProgress={({ playedSeconds }) => {
-                if (isPlaying) {
-                  setCurrentTime(playedSeconds);
-                }
+                setCurrentTime(playedSeconds);
               }}
               config={PLAYER_CONFIG}
             />
@@ -547,31 +572,34 @@ const GlobalMiniPlayer = () => {
 
         {/* Persistent progress bar (always visible at bottom of player) */}
         {isValidYoutube && (
-          <div className="absolute bottom-0 left-0 right-0 z-10 group pb-0.5">
+          <div className="absolute bottom-0 left-0 right-0 z-10 group px-1.5 pb-1">
             {isHoveringSeek && (
               <div
-                className="absolute bottom-full mb-1 -translate-x-1/2 pointer-events-none"
+                className="absolute bottom-full mb-2 -translate-x-1/2 pointer-events-none z-30"
                 style={{ left: `${seekHoverPos * 100}%` }}
               >
-                <div className="bg-slate-900 border border-slate-700/60 rounded-md px-1.5 py-0.5 shadow-xl">
-                  <span className="text-[10px] font-bold text-white tabular-nums whitespace-nowrap">
+                <div className="bg-slate-950 border border-slate-700/80 rounded-lg px-2 py-1 shadow-2xl relative">
+                  <span className="text-[11px] font-bold text-white tabular-nums whitespace-nowrap">
                     {formatTime(seekHoverTime)}
                   </span>
+                  <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-950 border-r border-b border-slate-700/80 rotate-45" />
                 </div>
               </div>
             )}
             <div
               ref={progressRef}
-              className="w-full h-1.5 bg-slate-700/50 cursor-pointer group-hover:h-2 transition-all duration-150 relative overflow-hidden"
+              className="w-full h-1.5 bg-white/10 rounded-full cursor-pointer group-hover:h-2 transition-all duration-150 relative"
               onPointerDown={handleProgressBarPointerDown}
               onPointerMove={handleProgressBarPointerMove}
+              onPointerUp={handleProgressBarPointerUp}
               onPointerLeave={handleProgressBarPointerLeave}
+              onPointerCancel={() => { isDraggingRef.current = false; }}
             >
               <div
-                className="h-full bg-youtube-red transition-all duration-100 relative"
+                className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full relative transition-[width] duration-75"
                 style={{ width: `${progressPercent}%` }}
               >
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rounded-full shadow-sm opacity-60 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-lg shadow-black/30 ring-2 ring-white/20 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-150" />
               </div>
             </div>
           </div>

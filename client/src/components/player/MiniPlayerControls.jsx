@@ -28,6 +28,7 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
   const [hoverPosition, setHoverPosition] = useState(0);
   const [isHoveringSeek, setIsHoveringSeek] = useState(false);
   const progressRef = useRef(null);
+  const isDraggingRef = useRef(false);
 
   useEffect(() => {
     if (!currentVideoId) return;
@@ -63,7 +64,10 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
     if (!progressRef.current || !onSeekTo || duration <= 0) return;
     const rect = progressRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
-    onSeekTo(x * duration);
+    const time = x * duration;
+    onSeekTo(time);
+    isDraggingRef.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const handleProgressHover = (e) => {
@@ -73,10 +77,24 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
     setHoverPosition(x);
     setHoveredTime(Math.max(0, Math.min(x * duration, duration)));
     setIsHoveringSeek(true);
+    if (isDraggingRef.current && onSeekTo) {
+      onSeekTo(x * duration);
+    }
+  };
+
+  const handleProgressPointerUp = (e) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    if (!progressRef.current || !onSeekTo || duration <= 0) return;
+    const rect = progressRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
+    onSeekTo(x * duration);
   };
 
   const handleProgressLeave = () => {
-    setIsHoveringSeek(false);
+    if (!isDraggingRef.current) {
+      setIsHoveringSeek(false);
+    }
   };
 
   const skipForward = () => {
@@ -152,26 +170,31 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
         <div className="relative flex items-center gap-1.5">
           {isHoveringSeek && (
             <div
-              className="absolute bottom-full mb-1.5 -translate-x-1/2 z-30 pointer-events-none bg-slate-900 border border-slate-700/60 rounded-md px-1.5 py-0.5 shadow-xl"
+              className="absolute bottom-full mb-1.5 -translate-x-1/2 z-30 pointer-events-none"
               style={{ left: `${hoverPosition * 100}%` }}
             >
-              <span className="text-[10px] font-bold text-white tabular-nums whitespace-nowrap">
-                {formatTime(hoveredTime)}
-              </span>
+              <div className="bg-slate-950 border border-slate-700/80 rounded-lg px-2 py-1 shadow-2xl relative">
+                <span className="text-[11px] font-bold text-white tabular-nums whitespace-nowrap">
+                  {formatTime(hoveredTime)}
+                </span>
+                <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-950 border-r border-b border-slate-700/80 rotate-45" />
+              </div>
             </div>
           )}
           <div
             ref={progressRef}
-            className="flex-1 h-2 bg-slate-700/50 rounded-full overflow-hidden cursor-pointer relative"
+            className="flex-1 h-1.5 bg-white/10 rounded-full cursor-pointer group-hover:h-2 transition-all duration-150 relative"
             onPointerDown={handleProgressPointer}
             onPointerMove={handleProgressHover}
+            onPointerUp={handleProgressPointerUp}
             onPointerLeave={handleProgressLeave}
+            onPointerCancel={() => { isDraggingRef.current = false; }}
           >
             <div
-              className="h-full bg-youtube-red rounded-full relative"
+              className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full relative transition-[width] duration-75"
               style={{ width: `${progressPercent}%` }}
             >
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rounded-full shadow-sm" />
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg shadow-black/30 ring-2 ring-white/20 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-150" />
             </div>
           </div>
         </div>
@@ -226,7 +249,7 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
               className="absolute bottom-full mb-2 -translate-x-1/2 z-30 pointer-events-none"
               style={{ left: `${hoverPosition * 100}%` }}
             >
-              <div className="bg-slate-900 border border-slate-700/60 rounded-lg overflow-hidden shadow-2xl">
+              <div className="bg-slate-950 border border-slate-700/80 rounded-lg overflow-hidden shadow-2xl relative">
                 <img
                   src={`https://img.youtube.com/vi/${currentVideoId}/mqdefault.jpg`}
                   alt="Preview"
@@ -235,27 +258,32 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
                   draggable={false}
                 />
                 <div className="px-2 py-1 text-center">
-                  <span className="text-[10px] font-bold text-white tabular-nums">
+                  <span className="text-[11px] font-bold text-white tabular-nums">
                     {formatTime(hoveredTime)}
                   </span>
                 </div>
+                <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-950 border-r border-b border-slate-700/80 rotate-45" />
               </div>
             </div>
           )}
           <div
             ref={progressRef}
-            className="w-full h-1.5 bg-slate-700/60 rounded-full overflow-hidden cursor-pointer hover:h-2 transition-all duration-150 relative"
+            className="w-full h-1.5 bg-white/10 rounded-full cursor-pointer group-hover:h-2 transition-all duration-150 relative"
             onPointerDown={(e) => {
               e.stopPropagation();
               handleProgressPointer(e);
             }}
             onPointerMove={handleProgressHover}
+            onPointerUp={handleProgressPointerUp}
             onPointerLeave={handleProgressLeave}
+            onPointerCancel={() => { isDraggingRef.current = false; }}
           >
             <div
-              className="h-full bg-youtube-red transition-all duration-100"
+              className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full relative transition-[width] duration-75"
               style={{ width: `${progressPercent}%` }}
-            />
+            >
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg shadow-black/30 ring-2 ring-white/20 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-150" />
+            </div>
           </div>
         </div>
         
