@@ -138,9 +138,8 @@ const GlobalMiniPlayer = () => {
 
   const applyPlaybackRate = useCallback((rate) => {
     if (!playerRef.current) return;
-    const internal = playerRef.current.getInternalPlayer();
-    if (internal && typeof internal.setPlaybackRate === 'function') {
-      internal.setPlaybackRate(rate);
+    if (typeof playerRef.current.playbackRate !== 'undefined') {
+      playerRef.current.playbackRate = rate;
     }
     localPlaybackRateRef.current = rate;
     setPlaybackRate(rate);
@@ -395,16 +394,9 @@ const GlobalMiniPlayer = () => {
       const player = playerRef.current;
       if (!player) return;
 
-      const internalPlayer = typeof player.getInternalPlayer === 'function' ? player.getInternalPlayer() : null;
-      if (!internalPlayer) return;
-
-      let playerState = -1;
-      if (typeof internalPlayer.getPlayerState === 'function') {
-        playerState = internalPlayer.getPlayerState();
-      }
-
-      // 1. If playback never stopped (state is 1 / PLAYING), do nothing
-      if (playerState === 1) {
+      // player.paused is a standard HTMLVideoElement property (also on youtube-video-element)
+      // false means the player is actively playing, true means it's paused/stopped
+      if (!player.paused) {
         return;
       }
 
