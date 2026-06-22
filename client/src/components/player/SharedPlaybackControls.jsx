@@ -9,13 +9,6 @@ import useSocketStore from '../../store/socketStore';
 
 const PLAYBACK_RATES = [0.5, 1, 1.5, 2];
 
-const formatTime = (seconds) => {
-  if (isNaN(seconds) || seconds === null || seconds < 0) return '0:00';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
-};
-
 const SharedPlaybackControls = ({
   duration,
   currentTime,
@@ -31,6 +24,18 @@ const SharedPlaybackControls = ({
   hasControl,
   isHost,
   syncStatus,
+  // Progress bar props — moved inside this component for correct hover z-ordering
+  progressPercent = 0,
+  progressRef = null,
+  seekHoverPos = 0,
+  seekHoverTime = 0,
+  isHoveringSeek = false,
+  formatTime,
+  onProgressPointerDown,
+  onProgressPointerMove,
+  onProgressPointerUp,
+  onProgressPointerLeave,
+  onProgressPointerCancel,
 }) => {
   const { currentRoom, roomUsers } = useRoomStore();
   const { user } = useAuthStore();
@@ -126,13 +131,46 @@ const SharedPlaybackControls = ({
     : ['Re-syncing...', 'text-red-400', WifiOff];
 
   return (
-    <div ref={controlsRef} className="absolute inset-0 z-20">
-      {/* Transparent hit-target — always receives mouse events */}
-      <div
-        className="absolute inset-0"
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => setShowControls(false)}
-      />
+    <div
+      ref={controlsRef}
+      className="absolute inset-0 z-30"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setShowControls(false)}
+    >
+      {/* Persistent progress bar (always visible at bottom, sits in container so hover works) */}
+      {progressRef && (
+        <div className="absolute bottom-0 left-0 right-0 z-30 group px-1.5 pb-1">
+          {isHoveringSeek && (
+            <div
+              className="absolute bottom-full mb-2 -translate-x-1/2 pointer-events-none z-30"
+              style={{ left: `${seekHoverPos * 100}%` }}
+            >
+              <div className="bg-slate-950 border border-slate-700/80 rounded-lg px-2 py-1 shadow-2xl relative">
+                <span className="text-[11px] font-bold text-white tabular-nums whitespace-nowrap">
+                  {formatTime(seekHoverTime)}
+                </span>
+                <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-950 border-r border-b border-slate-700/80 rotate-45" />
+              </div>
+            </div>
+          )}
+          <div
+            ref={progressRef}
+            className="w-full h-1.5 bg-white/10 rounded-full cursor-pointer group-hover:h-2 transition-all duration-150 relative"
+            onPointerDown={onProgressPointerDown}
+            onPointerMove={onProgressPointerMove}
+            onPointerUp={onProgressPointerUp}
+            onPointerLeave={onProgressPointerLeave}
+            onPointerCancel={onProgressPointerCancel}
+          >
+            <div
+              className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full relative transition-[width] duration-75"
+              style={{ width: `${progressPercent}%` }}
+            >
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-lg shadow-black/30 ring-2 ring-white/20 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-150" />
+            </div>
+          </div>
+        </div>
+      )}
       {/* Controls content — fades in/out */}
       <div className={`absolute inset-0 flex flex-col justify-end transition-opacity duration-300 pointer-events-none ${
         showControls ? 'opacity-100' : 'opacity-0'

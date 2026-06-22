@@ -65,6 +65,7 @@ const GlobalMiniPlayer = () => {
   const localVersionRef = useRef(0);
   const suppressUntil = useRef(0);
   const isDraggingRef = useRef(false);
+  const isLocalSeekingRef = useRef(false);
   const localPlaybackRateRef = useRef(1);
   const [duration, setDuration] = useState(0);
   const [localVolume, setLocalVolume] = useState(volume);
@@ -96,6 +97,8 @@ const GlobalMiniPlayer = () => {
     seekTo(time);
     setCurrentTime(time);
     isDraggingRef.current = true;
+    isLocalSeekingRef.current = true;
+    setTimeout(() => { isLocalSeekingRef.current = false; }, 1000);
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
@@ -120,13 +123,17 @@ const GlobalMiniPlayer = () => {
     const rect = progressRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
     suppressUntil.current = 0;
-    handleSeek(x * duration);
+    emitSeekToServer(x * duration);
   };
 
   const handleProgressBarPointerLeave = () => {
     if (!isDraggingRef.current) {
       setIsHoveringSeek(false);
     }
+  };
+
+  const handleProgressBarPointerCancel = () => {
+    isDraggingRef.current = false;
   };
 
   const [prevVideoId, setPrevVideoId] = useState(currentVideoId);
@@ -305,6 +312,12 @@ const GlobalMiniPlayer = () => {
 
   // Handle player events and report them
   const handlePlay = () => {
+    // Suppress play emissions triggered by seeking on an ended video
+    // (YouTube auto-plays after seek on ended state).
+    if (isLocalSeekingRef.current) {
+      isLocalSeekingRef.current = false;
+      return;
+    }
     if (isSuppressed()) return;
     if (!hasControl) return;
     const currentTime = getCurrentTime();
@@ -331,13 +344,18 @@ const GlobalMiniPlayer = () => {
     suppress(1200);
   };
 
-  const handleSeek = (seconds) => {
+  const emitSeekToServer = (seconds) => {
     if (isSuppressed()) return;
     if (!hasControl) return;
 
     updateRoomPlayback({ currentTime: seconds });
     emitVideoSeek(seconds);
     suppress(1200);
+  };
+
+  const seekToLocal = (time) => {
+    seekTo(time);
+    setCurrentTime(time);
   };
 
   const handleEnded = () => {
@@ -454,11 +472,9 @@ const GlobalMiniPlayer = () => {
     setIsMuted(!isMuted);
   };
 
-  const handleSeekTo = (time, force = false) => {
-    seekTo(time);
-    setCurrentTime(time);
-    if (force) suppressUntil.current = 0;
-    handleSeek(time);
+  const handleSeekTo = (time) => {
+    seekToLocal(time);
+    emitSeekToServer(time);
   };
 
   if (!isAuthenticated || isClosed || !isValidYoutube) {
@@ -553,7 +569,7 @@ const GlobalMiniPlayer = () => {
               onReady={onPlayerReady}
               onPlay={handlePlay}
               onPause={handlePause}
-              onSeek={handleSeek}
+              onSeek={(seconds) => setCurrentTime(seconds)}
               onEnded={handleEnded}
               onDuration={(d) => setDuration(d)}
               onProgress={({ playedSeconds }) => {
@@ -564,42 +580,8 @@ const GlobalMiniPlayer = () => {
           </Suspense>
         </div>
 
-        {/* Persistent progress bar (always visible at bottom of player) */}
-        {isValidYoutube && (
-          <div className="absolute bottom-0 left-0 right-0 z-30 group px-1.5 pb-1">
-            {isHoveringSeek && (
-              <div
-                className="absolute bottom-full mb-2 -translate-x-1/2 pointer-events-none z-30"
-                style={{ left: `${seekHoverPos * 100}%` }}
-              >
-                <div className="bg-slate-950 border border-slate-700/80 rounded-lg px-2 py-1 shadow-2xl relative">
-                  <span className="text-[11px] font-bold text-white tabular-nums whitespace-nowrap">
-                    {formatTime(seekHoverTime)}
-                  </span>
-                  <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-950 border-r border-b border-slate-700/80 rotate-45" />
-                </div>
-              </div>
-            )}
-            <div
-              ref={progressRef}
-              className="w-full h-1.5 bg-white/10 rounded-full cursor-pointer group-hover:h-2 transition-all duration-150 relative"
-              onPointerDown={handleProgressBarPointerDown}
-              onPointerMove={handleProgressBarPointerMove}
-              onPointerUp={handleProgressBarPointerUp}
-              onPointerLeave={handleProgressBarPointerLeave}
-              onPointerCancel={() => { isDraggingRef.current = false; }}
-            >
-              <div
-                className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full relative transition-[width] duration-75"
-                style={{ width: `${progressPercent}%` }}
-              >
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-lg shadow-black/30 ring-2 ring-white/20 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-150" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Room mode shared playback controls (visible to all users) */}
+        {/* Room mode shared playback controls (visible to all users)
+            Contains the persistent progress bar + playback controls */}
         {isRoomMode && (
           <SharedPlaybackControls
             duration={duration}
@@ -616,6 +598,17 @@ const GlobalMiniPlayer = () => {
             hasControl={hasControl}
             isHost={isHost}
             syncStatus={syncStatus}
+            progressPercent={progressPercent}
+            progressRef={progressRef}
+            seekHoverPos={seekHoverPos}
+            seekHoverTime={seekHoverTime}
+            isHoveringSeek={isHoveringSeek}
+            formatTime={formatTime}
+            onProgressPointerDown={handleProgressBarPointerDown}
+            onProgressPointerMove={handleProgressBarPointerMove}
+            onProgressPointerUp={handleProgressBarPointerUp}
+            onProgressPointerLeave={handleProgressBarPointerLeave}
+            onProgressPointerCancel={handleProgressBarPointerCancel}
           />
         )}
 
@@ -626,6 +619,7 @@ const GlobalMiniPlayer = () => {
             onTogglePlay={handleTogglePlay}
             onToggleMute={handleToggleMute}
             onSeekTo={handleSeekTo}
+            onSeekLocal={seekToLocal}
             layout={isMobile ? 'mobile' : 'desktop'}
           />
         )}

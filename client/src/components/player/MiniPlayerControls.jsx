@@ -5,7 +5,7 @@ import useAuthStore from '../../store/authStore';
 import useRoomStore from '../../store/roomStore';
 import axios from 'axios';
 
-const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, layout = 'desktop' }) => {
+const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, onSeekLocal, layout = 'desktop' }) => {
   const {
     currentVideoId,
     isPlaying,
@@ -61,11 +61,11 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   const handleProgressPointer = (e) => {
-    if (!progressRef.current || !onSeekTo || duration <= 0) return;
+    if (!progressRef.current || duration <= 0) return;
     const rect = progressRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
     const time = x * duration;
-    onSeekTo(time);
+    if (onSeekLocal) onSeekLocal(time);
     isDraggingRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
   };
@@ -77,18 +77,18 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
     setHoverPosition(x);
     setHoveredTime(Math.max(0, Math.min(x * duration, duration)));
     setIsHoveringSeek(true);
-    if (isDraggingRef.current && onSeekTo) {
-    onSeekTo(x * duration, true);
+    if (isDraggingRef.current && onSeekLocal) {
+      onSeekLocal(x * duration);
     }
   };
 
   const handleProgressPointerUp = (e) => {
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
-    if (!progressRef.current || !onSeekTo || duration <= 0) return;
+    if (!onSeekTo || duration <= 0) return;
     const rect = progressRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
-    onSeekTo(x * duration, true);
+    onSeekTo(x * duration);
   };
 
   const handleProgressLeave = () => {
