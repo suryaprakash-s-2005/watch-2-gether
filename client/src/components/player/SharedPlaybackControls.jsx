@@ -126,15 +126,18 @@ const SharedPlaybackControls = ({
     : ['Re-syncing...', 'text-red-400', WifiOff];
 
   return (
-    <div
-      ref={controlsRef}
-      className={`absolute inset-0 z-20 flex flex-col justify-end transition-opacity duration-300 ${
-        showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      }`}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={() => setShowControls(false)}
-    >
-      <div className="bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent px-3 pb-2 pt-12">
+    <div ref={controlsRef} className="absolute inset-0 z-20">
+      {/* Transparent hit-target — always receives mouse events */}
+      <div
+        className="absolute inset-0"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setShowControls(false)}
+      />
+      {/* Controls content — fades in/out */}
+      <div className={`absolute inset-0 flex flex-col justify-end transition-opacity duration-300 pointer-events-none ${
+        showControls ? 'opacity-100' : 'opacity-0'
+      }`}>
+        <div className="bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent px-3 pb-2 pt-12 pointer-events-auto">
         {/* Sync status + host info bar */}
         <div className="flex items-center justify-between mb-1.5 px-1">
           <div className="flex items-center gap-2">
@@ -291,6 +294,7 @@ const SharedPlaybackControls = ({
               {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>

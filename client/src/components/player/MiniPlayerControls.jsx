@@ -78,7 +78,7 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
     setHoveredTime(Math.max(0, Math.min(x * duration, duration)));
     setIsHoveringSeek(true);
     if (isDraggingRef.current && onSeekTo) {
-      onSeekTo(x * duration);
+    onSeekTo(x * duration, true);
     }
   };
 
@@ -88,7 +88,7 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
     if (!progressRef.current || !onSeekTo || duration <= 0) return;
     const rect = progressRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
-    onSeekTo(x * duration);
+    onSeekTo(x * duration, true);
   };
 
   const handleProgressLeave = () => {

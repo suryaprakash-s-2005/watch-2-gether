@@ -119,6 +119,7 @@ const GlobalMiniPlayer = () => {
     if (duration <= 0) return;
     const rect = progressRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
+    suppressUntil.current = 0;
     handleSeek(x * duration);
   };
 
@@ -461,9 +462,10 @@ const GlobalMiniPlayer = () => {
     setIsMuted(!isMuted);
   };
 
-  const handleSeekTo = (time) => {
+  const handleSeekTo = (time, force = false) => {
     seekTo(time);
     setCurrentTime(time);
+    if (force) suppressUntil.current = 0;
     handleSeek(time);
   };
 
@@ -572,7 +574,7 @@ const GlobalMiniPlayer = () => {
 
         {/* Persistent progress bar (always visible at bottom of player) */}
         {isValidYoutube && (
-          <div className="absolute bottom-0 left-0 right-0 z-10 group px-1.5 pb-1">
+          <div className="absolute bottom-0 left-0 right-0 z-30 group px-1.5 pb-1">
             {isHoveringSeek && (
               <div
                 className="absolute bottom-full mb-2 -translate-x-1/2 pointer-events-none z-30"
