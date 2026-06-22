@@ -9,7 +9,7 @@ const VideoPlayer = () => {
   const { currentRoom } = useRoomStore();
   const { user } = useAuthStore();
   const { emitRequestSync } = useSocketStore();
-  const { isSynced, setIsSynced, setIsPlaying, setSlotRect, hasSyncedInitial, setHasSyncedInitial } = useGlobalPlayer();
+  const { isSynced, setIsSynced, setSlotRect, hasSyncedInitial, setHasSyncedInitial } = useGlobalPlayer();
 
   const containerRef = useRef(null);
 
@@ -69,9 +69,9 @@ const VideoPlayer = () => {
   const handleSyncClick = () => {
     setIsSynced(true);
     setHasSyncedInitial(true);
-    setIsPlaying(true);
     // Request the current server state so the response will trigger a fresh
     // room-state → playbackCommand with the accurate time and syncVersion.
+    // The playbackCommand handler will set the correct isPlaying state.
     emitRequestSync();
   };
 

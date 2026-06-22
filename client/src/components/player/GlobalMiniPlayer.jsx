@@ -72,7 +72,40 @@ const GlobalMiniPlayer = () => {
   const [miniWidth, setMiniWidth] = useState(320);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
   const [isReady, setIsReady] = useState(false);
+  const [seekHoverPos, setSeekHoverPos] = useState(0);
+  const [seekHoverTime, setSeekHoverTime] = useState(0);
+  const [isHoveringSeek, setIsHoveringSeek] = useState(false);
+  const progressRef = useRef(null);
   const lastSyncedVideoId = useRef(null);
+
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  const formatTime = (seconds) => {
+    if (isNaN(seconds) || seconds === null) return '0:00';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  const handleProgressBarPointerDown = (e) => {
+    if (!progressRef.current || duration <= 0) return;
+    const rect = progressRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
+    handleSeekTo(x * duration);
+  };
+
+  const handleProgressBarPointerMove = (e) => {
+    if (!progressRef.current || duration <= 0) return;
+    const rect = progressRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
+    setSeekHoverPos(x);
+    setSeekHoverTime(x * duration);
+    setIsHoveringSeek(true);
+  };
+
+  const handleProgressBarPointerLeave = () => {
+    setIsHoveringSeek(false);
+  };
 
   const [prevVideoId, setPrevVideoId] = useState(currentVideoId);
   if (currentVideoId !== prevVideoId) {
@@ -166,7 +199,7 @@ const GlobalMiniPlayer = () => {
 
     const { type, time, isPlaying: shouldPlay, syncVersion, rate, playbackRate: cmdRate } = playbackCommand;
 
-    if (syncVersion !== undefined && syncVersion < localVersionRef.current) {
+    if (syncVersion !== undefined && syncVersion <= localVersionRef.current) {
       setPlaybackCommand(null);
       return;
     }
@@ -224,44 +257,21 @@ const GlobalMiniPlayer = () => {
 
       if (absDiff < 1) {
         setSyncStatus('synced');
-      } else if (absDiff < 3) {
+      } else if (absDiff < 2) {
         setSyncStatus('drifted');
       } else {
         setSyncStatus('unsynced');
       }
 
-      if (diff > 0) {
-        if (diff < 3) {
-          if (isPlaying !== isRoomPlaying) {
-            setIsPlaying(isRoomPlaying);
-          }
-          setIsSynced(true);
-        } else if (diff <= 5) {
-          if (isPlaying !== isRoomPlaying) {
-            setIsPlaying(isRoomPlaying);
-          }
-          setIsSynced(true);
-        } else {
-          suppress(1200);
-          setIsPlaying(isRoomPlaying);
-          setIsSynced(true);
-          seekTo(time);
-          updateRoomPlayback({ isPlaying: isRoomPlaying, currentTime: time });
-        }
-      } else {
-        if (absDiff > 3) {
-          suppress(1200);
-          setIsPlaying(isRoomPlaying);
-          setIsSynced(true);
-          seekTo(time);
-          updateRoomPlayback({ isPlaying: isRoomPlaying, currentTime: time });
-        } else {
-          if (isPlaying !== isRoomPlaying) {
-            setIsPlaying(isRoomPlaying);
-          }
-          setIsSynced(true);
-        }
+      if (absDiff >= 2) {
+        suppress(1200);
+        seekTo(time);
+        updateRoomPlayback({ isPlaying: isRoomPlaying, currentTime: time });
       }
+      if (isPlaying !== isRoomPlaying) {
+        setIsPlaying(isRoomPlaying);
+      }
+      setIsSynced(true);
     }
 
     setPlaybackCommand(null);
@@ -536,6 +546,38 @@ const GlobalMiniPlayer = () => {
           </Suspense>
         </div>
 
+        {/* Persistent progress bar (always visible at bottom of player) */}
+        {isValidYoutube && (
+          <div className="absolute bottom-0 left-0 right-0 z-10 group pb-0.5">
+            {isHoveringSeek && (
+              <div
+                className="absolute bottom-full mb-1 -translate-x-1/2 pointer-events-none"
+                style={{ left: `${seekHoverPos * 100}%` }}
+              >
+                <div className="bg-slate-900 border border-slate-700/60 rounded-md px-1.5 py-0.5 shadow-xl">
+                  <span className="text-[10px] font-bold text-white tabular-nums whitespace-nowrap">
+                    {formatTime(seekHoverTime)}
+                  </span>
+                </div>
+              </div>
+            )}
+            <div
+              ref={progressRef}
+              className="w-full h-1 bg-slate-700/50 cursor-pointer group-hover:h-1.5 transition-all duration-150 relative overflow-hidden"
+              onPointerDown={handleProgressBarPointerDown}
+              onPointerMove={handleProgressBarPointerMove}
+              onPointerLeave={handleProgressBarPointerLeave}
+            >
+              <div
+                className="h-full bg-youtube-red transition-all duration-100 relative"
+                style={{ width: `${progressPercent}%` }}
+              >
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Room mode shared playback controls (visible to all users) */}
         {isRoomMode && (
           <SharedPlaybackControls
@@ -554,7 +596,6 @@ const GlobalMiniPlayer = () => {
             isHost={isHost}
             isSynced={isSynced}
             syncStatus={syncStatus}
-            currentVideoId={currentVideoId}
           />
         )}
 

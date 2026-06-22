@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import useRoomStore from '../../store/roomStore';
 import useAuthStore from '../../store/authStore';
-import useGlobalPlayer from '../../hooks/useGlobalPlayer';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
   Maximize, Minimize, Lock, Unlock, Crown, Wifi, WifiOff
@@ -31,27 +30,16 @@ const SharedPlaybackControls = ({
   onPlaybackRateChange,
   hasControl,
   isHost,
-  isSynced,
   syncStatus,
-  currentVideoId,
 }) => {
   const { currentRoom, roomUsers } = useRoomStore();
   const { user } = useAuthStore();
-  const { emitVideoEnded } = useGlobalPlayer();
   const { emitSetGuestControl } = useSocketStore();
 
-  const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const hideTimerRef = useRef(null);
   const controlsRef = useRef(null);
-  const progressRef = useRef(null);
-  const previewRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [localVolume, setLocalVolume] = useState(volume);
   const [showRateMenu, setShowRateMenu] = useState(false);
-  const [hoveredTime, setHoveredTime] = useState(0);
-  const [hoverPosition, setHoverPosition] = useState(0);
-  const [isHovering, setIsHovering] = useState(false);
 
   const guestControlEnabled = currentRoom?.guestControlEnabled ?? false;
 
@@ -59,50 +47,11 @@ const SharedPlaybackControls = ({
     emitSetGuestControl(!guestControlEnabled);
   };
 
-  const handleProgressHover = (e) => {
-    if (!progressRef.current) return;
-    const rect = progressRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
-    setHoverPosition(x);
-    setHoveredTime(Math.max(0, Math.min(x * duration, duration)));
-    setIsHovering(true);
-  };
-
-  const handleProgressLeave = () => {
-    if (!isDragging) {
-      setIsHovering(false);
-    }
-  };
-
   const hostUser = roomUsers.find(u =>
     u.userId && currentRoom?.hostId &&
     String(u.userId) === String(currentRoom.hostId._id || currentRoom.hostId)
   );
   const hostName = hostUser?.username || (isHost ? user?.name : 'Host');
-
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
-
-  const startHideTimer = useCallback(() => {
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => {
-      if (!isDragging) setShowControls(false);
-    }, 3000);
-  }, [isDragging]);
-
-  const handleMouseMove = () => {
-    setShowControls(true);
-    startHideTimer();
-  };
-
-  useEffect(() => {
-    return () => {
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    startHideTimer();
-  }, [startHideTimer]);
 
   const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {
@@ -124,30 +73,6 @@ const SharedPlaybackControls = ({
     document.addEventListener('fullscreenchange', handleFSChange);
     return () => document.removeEventListener('fullscreenchange', handleFSChange);
   }, []);
-
-  const handleProgressClick = (e) => {
-    if (!hasControl || !progressRef.current) return;
-    const rect = progressRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const seekTime = Math.max(0, Math.min(x * duration, duration));
-    onSeekTo(seekTime);
-  };
-
-  const handleProgressDragStart = (e) => {
-    if (!hasControl) return;
-    setIsDragging(true);
-    handleProgressClick(e);
-    const handleMove = (ev) => {
-      handleProgressClick(ev);
-    };
-    const handleUp = () => {
-      setIsDragging(false);
-      document.removeEventListener('pointermove', handleMove);
-      document.removeEventListener('pointerup', handleUp);
-    };
-    document.addEventListener('pointermove', handleMove);
-    document.addEventListener('pointerup', handleUp);
-  };
 
   const handleVolumeSlider = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -179,13 +104,9 @@ const SharedPlaybackControls = ({
   return (
     <div
       ref={controlsRef}
-      className={`absolute inset-0 z-20 flex flex-col justify-end transition-opacity duration-300 ${
-        showControls || isDragging ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      }`}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={() => { if (!isDragging) setShowControls(false); }}
+      className="absolute inset-0 z-20 flex flex-col justify-end pointer-events-none"
     >
-      <div className="bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent px-3 pb-2 pt-12">
+      <div className="bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent px-3 pb-2 pt-12 pointer-events-auto">
         {/* Sync status + host info bar */}
         <div className="flex items-center justify-between mb-1.5 px-1">
           <div className="flex items-center gap-2">
@@ -227,49 +148,6 @@ const SharedPlaybackControls = ({
                 </div>
               )
             )}
-          </div>
-        </div>
-
-        {/* Progress bar with peek preview */}
-        <div className="relative mb-2">
-          {/* Peek preview floating element */}
-          {isHovering && currentVideoId && (
-            <div
-              ref={previewRef}
-              className="absolute bottom-full mb-2 -translate-x-1/2 z-30 pointer-events-none"
-              style={{ left: `${hoverPosition * 100}%` }}
-            >
-              <div className="bg-slate-900 border border-slate-700/60 rounded-lg overflow-hidden shadow-2xl">
-                <img
-                  src={`https://img.youtube.com/vi/${currentVideoId}/mqdefault.jpg`}
-                  alt="Preview"
-                  className="w-40 h-[22.5] object-cover"
-                  style={{ display: 'block', width: '160px', height: '90px' }}
-                  draggable={false}
-                />
-                <div className="px-2 py-1 text-center">
-                  <span className="text-[10px] font-bold text-white tabular-nums">
-                    {formatTime(hoveredTime)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-          <div
-            ref={progressRef}
-            className="w-full h-1.5 bg-slate-700/50 rounded-full overflow-hidden cursor-pointer group hover:h-2 transition-all duration-150"
-            onPointerDown={handleProgressDragStart}
-            onPointerMove={handleProgressHover}
-            onPointerLeave={handleProgressLeave}
-          >
-            <div
-              className="h-full bg-youtube-red relative transition-[width] duration-75"
-              style={{ width: `${progressPercent}%` }}
-            >
-              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md ${
-                showControls ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-              } transition-opacity`} />
-            </div>
           </div>
         </div>
 

@@ -119,7 +119,12 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
           <div className="flex items-center gap-0.5 shrink-0">
             <button
               onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
-              className="min-w-[36px] min-h-[36px] flex items-center justify-center text-slate-200 hover:text-white transition active:scale-95 cursor-pointer"
+              disabled={!hasControl}
+              className={`min-w-[36px] min-h-[36px] flex items-center justify-center transition active:scale-95 ${
+                hasControl
+                  ? 'text-slate-200 hover:text-white cursor-pointer'
+                  : 'text-slate-600 cursor-not-allowed'
+              }`}
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
               {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
@@ -201,7 +206,12 @@ const MiniPlayerControls = ({ duration, onTogglePlay, onToggleMute, onSeekTo, la
       <div className="flex items-center justify-center">
         <button
           onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
-          className="p-3 bg-youtube-red hover:bg-youtube-hover text-white rounded-full transition shadow-lg hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center"
+          disabled={!hasControl}
+          className={`p-3 rounded-full transition flex items-center justify-center ${
+            hasControl
+              ? 'bg-youtube-red hover:bg-youtube-hover text-white shadow-lg hover:scale-105 active:scale-95 cursor-pointer'
+              : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+          }`}
         >
           {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
         </button>
