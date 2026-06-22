@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import useRoomStore from '../../store/roomStore';
 import useAuthStore from '../../store/authStore';
 import {
@@ -36,10 +36,34 @@ const SharedPlaybackControls = ({
   const { user } = useAuthStore();
   const { emitSetGuestControl } = useSocketStore();
 
+  const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const hideTimerRef = useRef(null);
   const controlsRef = useRef(null);
   const [localVolume, setLocalVolume] = useState(volume);
   const [showRateMenu, setShowRateMenu] = useState(false);
+
+  const startHideTimer = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  }, []);
+
+  const handleMouseMove = () => {
+    setShowControls(true);
+    startHideTimer();
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    startHideTimer();
+  }, [startHideTimer]);
 
   const guestControlEnabled = currentRoom?.guestControlEnabled ?? false;
 
@@ -104,9 +128,13 @@ const SharedPlaybackControls = ({
   return (
     <div
       ref={controlsRef}
-      className="absolute inset-0 z-20 flex flex-col justify-end pointer-events-none"
+      className={`absolute inset-0 z-20 flex flex-col justify-end transition-opacity duration-300 ${
+        showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setShowControls(false)}
     >
-      <div className="bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent px-3 pb-2 pt-12 pointer-events-auto">
+      <div className="bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent px-3 pb-2 pt-12">
         {/* Sync status + host info bar */}
         <div className="flex items-center justify-between mb-1.5 px-1">
           <div className="flex items-center gap-2">

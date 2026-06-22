@@ -13,6 +13,7 @@ import analyticsRoutes from './routes/analyticsRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import { roomSocketHandler } from './sockets/roomSocket.js';
+import { startCleanupJob } from './utils/cleanup.js';
 import './config/passport.js';
 
 dotenv.config();
@@ -90,6 +91,7 @@ const io = new Server(server, {
 
 app.set('socketio', io);
 roomSocketHandler(io);
+startCleanupJob();
 
 
 app.use((err, req, res, next) => {

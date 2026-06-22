@@ -436,7 +436,6 @@ const GlobalMiniPlayer = () => {
   };
 
   const handleSeekTo = (time) => {
-    if (!hasControl) return;
     seekTo(time);
     handleSeek(time);
   };
@@ -563,7 +562,7 @@ const GlobalMiniPlayer = () => {
             )}
             <div
               ref={progressRef}
-              className="w-full h-1 bg-slate-700/50 cursor-pointer group-hover:h-1.5 transition-all duration-150 relative overflow-hidden"
+              className="w-full h-1.5 bg-slate-700/50 cursor-pointer group-hover:h-2 transition-all duration-150 relative overflow-hidden"
               onPointerDown={handleProgressBarPointerDown}
               onPointerMove={handleProgressBarPointerMove}
               onPointerLeave={handleProgressBarPointerLeave}
@@ -572,7 +571,7 @@ const GlobalMiniPlayer = () => {
                 className="h-full bg-youtube-red transition-all duration-100 relative"
                 style={{ width: `${progressPercent}%` }}
               >
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rounded-full shadow-sm opacity-60 group-hover:opacity-100 transition-opacity" />
               </div>
             </div>
           </div>
@@ -594,7 +593,6 @@ const GlobalMiniPlayer = () => {
             onPlaybackRateChange={handlePlaybackRateChange}
             hasControl={hasControl}
             isHost={isHost}
-            isSynced={isSynced}
             syncStatus={syncStatus}
           />
         )}
