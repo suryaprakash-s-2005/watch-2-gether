@@ -86,6 +86,12 @@ export const roomSocketHandler = (io) => {
           await room.save();
           success = true;
 
+          let currentTime = room.currentTime;
+          if (room.isPlaying && room.lastStateChange) {
+            const elapsed = (Date.now() - new Date(room.lastStateChange).getTime()) / 1000;
+            currentTime += elapsed * (room.playbackRate || 1);
+          }
+
           roomState.set(code, {
             currentVideo: room.currentVideo,
             currentTime: currentTime,
@@ -106,12 +112,6 @@ export const roomSocketHandler = (io) => {
             username: socket.user.name,
             users: room.users
           });
-
-          let currentTime = room.currentTime;
-          if (room.isPlaying && room.lastStateChange) {
-            const elapsed = (Date.now() - new Date(room.lastStateChange).getTime()) / 1000;
-            currentTime += elapsed * (room.playbackRate || 1);
-          }
 
           socket.emit('room-state', {
             currentVideo: room.currentVideo,
