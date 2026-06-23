@@ -929,42 +929,34 @@ export const roomSocketHandler = (io) => {
       const hostsToPromote = [];
       roomState.forEach((code, state) => {
         if (!state.lastHostPing) return;
-
         const timeSinceLastPing = Date.now() - state.lastHostPing;
         if (timeSinceLastPing < 15000) return;
-
         hostsToPromote.push(code);
       });
 
       for (const code of hostsToPromote) {
-        const state = roomState.get(code);
-        if (!state) continue;
-
-        const room = await Room.findOne({ roomCode: code }).lean();
-        if (!room || room.users.length === 0) {
-          roomState.delete(code);
-          continue;
-        }
-
-        const currentHostId = state.hostId?.toString();
-        const nextUser = room.users.find(u => u.userId.toString() !== currentHostId);
-        if (!nextUser) continue;
-
-        const newHostId = nextUser.userId;
-        const newHostName = nextUser.username;
-
-      for (const { code, newHostId, newHostName } of hostsToPromote) {
         try {
+          const state = roomState.get(code);
+          if (!state) continue;
+
           const room = await Room.findOne({ roomCode: code });
-          if (!room) continue;
-          room.hostId = newHostId;
+          if (!room || room.users.length === 0) {
+            roomState.delete(code);
+            continue;
+          }
+
+          const currentHostId = state.hostId?.toString();
+          const nextUser = room.users.find(u => u.userId.toString() !== currentHostId);
+          if (!nextUser) continue;
+
+          room.hostId = nextUser.userId;
           await room.save();
 
-          roomState.update(code, { hostId: newHostId, lastHostPing: Date.now() });
+          roomState.update(code, { hostId: nextUser.userId, lastHostPing: Date.now() });
 
           io.to(code).emit('host-change', {
-            hostId: newHostId,
-            message: `Host was unresponsive. ${newHostName} is the new host! 👑`
+            hostId: nextUser.userId,
+            message: `Host was unresponsive. ${nextUser.username} is the new host! 👑`
           });
         } catch (err) {
           console.error('Host auto-promotion error:', err.message);
