@@ -22,7 +22,7 @@ const PlayerContainer = () => {
     currentVideoId, currentTime, isPlaying, volume, isMuted, playbackRate,
     isMiniPlayer, isClosed, slotRect, isSynced, sourceType: storeSourceType,
     setCurrentTime, setIsMuted, setPlaybackRate,
-    setIsMiniPlayer,
+    setIsMiniPlayer, setIsPlaying,
   } = playerStore;
 
   const { currentRoom, updateRoomPlayback } = useRoomStore();
@@ -35,6 +35,7 @@ const PlayerContainer = () => {
   const [isReady, setIsReady] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [seekHoverPos, setSeekHoverPos] = useState(0);
@@ -45,7 +46,11 @@ const PlayerContainer = () => {
     typeof window !== 'undefined' ? window.innerWidth < 640 : false
   );
   const [miniWidth, setMiniWidth] = useState(320);
-  const [videoTitle, setVideoTitle] = useState(''); 
+  const [videoTitle, setVideoTitle] = useState('');
+
+  useEffect(() => {
+    setHasPlayedOnce(false); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [currentVideoId]); 
 
   const isHost = currentRoom?.hostId && user?._id &&
     String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
@@ -96,12 +101,9 @@ const PlayerContainer = () => {
 
   const handleTogglePlay = useCallback(() => {
     if (!hasControl) return;
-    if (isPlaying) {
-      playerRef.current?.pause?.();
-    } else {
-      playerRef.current?.play?.();
-    }
-  }, [hasControl, isPlaying]);
+    setHasPlayedOnce(true);
+    setIsPlaying(!isPlaying);
+  }, [hasControl, isPlaying, setIsPlaying]);
 
   const handleToggleMute = useCallback(() => {
     setIsMuted(!isMuted);
@@ -217,13 +219,15 @@ const PlayerContainer = () => {
 
   const skipForward = useCallback(() => {
     if (!hasControl) return;
+    setHasPlayedOnce(true);
     handleSeekTo(Math.min(currentTime + 10, duration));
-  }, [hasControl, currentTime, duration, handleSeekTo]);
+  }, [hasControl, currentTime, duration, handleSeekTo, setHasPlayedOnce]);
 
   const skipBackward = useCallback(() => {
     if (!hasControl) return;
+    setHasPlayedOnce(true);
     handleSeekTo(Math.max(currentTime - 10, 0));
-  }, [hasControl, currentTime, handleSeekTo]);
+  }, [hasControl, currentTime, handleSeekTo, setHasPlayedOnce]);
 
   const formatTime = useCallback((seconds) => {
     if (isNaN(seconds) || seconds === null) return '0:00';
@@ -439,10 +443,10 @@ const PlayerContainer = () => {
                 videoId={currentVideoId}
                 playing={isSynced && isPlaying}
                 volume={localVolume}
-                muted={isMuted}
+                muted={!hasPlayedOnce ? true : isMuted}
                 playbackRate={playbackRate}
                 onReady={() => { setIsReady(true); syncApi.onPlayerReady(); }}
-                onPlay={syncApi.handlePlay}
+                onPlay={() => { setHasPlayedOnce(true); syncApi.handlePlay(); }}
                 onPause={syncApi.handlePause}
                 onEnded={handleEnded}
                 onDuration={setDuration}
@@ -459,10 +463,10 @@ const PlayerContainer = () => {
               videoId={currentVideoId}
               playing={isSynced && isPlaying}
               volume={localVolume}
-              muted={isMuted}
+              muted={!hasPlayedOnce ? true : isMuted}
               playbackRate={playbackRate}
               onReady={() => { setIsReady(true); syncApi.onPlayerReady(); }}
-              onPlay={syncApi.handlePlay}
+              onPlay={() => { setHasPlayedOnce(true); syncApi.handlePlay(); }}
               onPause={syncApi.handlePause}
               onEnded={handleEnded}
               onDuration={setDuration}
