@@ -499,11 +499,11 @@ const PlayerContainer = () => {
         dragConstraints={dragConstraintsRef}
         dragElastic={0.1}
         dragMomentum={false}
-        style={style}
         className={`bg-slate-950/85 backdrop-blur-md border border-slate-800/80 pointer-events-auto flex items-center justify-center select-none transition-all duration-500 ${
           isRoomMode && isTheaterMode ? '!fixed !inset-x-0 !top-0 !bottom-0 !w-full !h-full !z-40 rounded-none border-0' : ''
         }`}
         style={{
+          ...style,
           ...(ambientColor && isPlaying && isSynced ? {
             boxShadow: `0 0 60px 20px rgba(${ambientColor.replace('rgb(', '').replace(')', '')},0.15), 0 0 120px 40px rgba(${ambientColor.replace('rgb(', '').replace(')', '')},0.08)`,
           } : {}),

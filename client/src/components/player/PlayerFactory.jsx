@@ -1,10 +1,12 @@
-import { createElement } from 'react';
+import { createElement, forwardRef } from 'react';
 import { getPlayerComponent } from './sources/SourceRegistry';
 
-const PlayerFactory = ({ sourceType, ...props }) => {
+const PlayerFactory = forwardRef(({ sourceType, ...props }, ref) => {
   const Player = getPlayerComponent(sourceType);
   if (!Player) return null;
-  return createElement(Player, props);
-};
+  return createElement(Player, { ...props, ref });
+});
+
+PlayerFactory.displayName = 'PlayerFactory';
 
 export default PlayerFactory;

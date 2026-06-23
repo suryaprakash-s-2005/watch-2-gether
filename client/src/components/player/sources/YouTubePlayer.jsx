@@ -12,6 +12,7 @@ const PLAYER_CONFIG = {
       iv_load_policy: 3,
       cc_load_policy: 1,
       enablejsapi: 1,
+      controls: 0, // Disable native YouTube controls
       origin: typeof window !== 'undefined' ? window.location.origin : '',
     },
   },
@@ -41,7 +42,7 @@ const YouTubePlayer = forwardRef(({
     <Suspense fallback={null}>
       <ReactPlayer
         ref={ref}
-        src={url}
+        url={url}
         width="100%"
         height="100%"
         playing={playing}
