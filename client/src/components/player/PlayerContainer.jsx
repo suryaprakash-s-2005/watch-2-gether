@@ -101,7 +101,6 @@ const PlayerContainer = () => {
 
   const handleTogglePlay = useCallback(() => {
     if (!hasControl) return;
-    setHasPlayedOnce(true);
     setIsPlaying(!isPlaying);
   }, [hasControl, isPlaying, setIsPlaying]);
 
