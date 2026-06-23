@@ -6,6 +6,7 @@ import Friendship from '../models/Friendship.js';
 import WatchSession from '../models/WatchSession.js';
 import UserAnalytics from '../models/UserAnalytics.js';
 import { registerChatHandlers } from './chatSocket.js';
+import roomState from '../utils/RoomState.js';
 
 
 const getVideoTitle = async (videoId) => {
@@ -85,6 +86,21 @@ export const roomSocketHandler = (io) => {
           await room.save();
           success = true;
 
+          roomState.set(code, {
+            currentVideo: room.currentVideo,
+            currentTime: currentTime,
+            isPlaying: room.isPlaying,
+            hostId: room.hostId,
+            guestControlEnabled: room.guestControlEnabled,
+            permissionMode: room.permissionMode || 'guest-control',
+            coHosts: room.coHosts || [],
+            syncVersion: room.syncVersion,
+            playbackRate: room.playbackRate || 1,
+            lastStateChange: room.lastStateChange,
+            sourceType: room.sourceType || 'youtube',
+            lastHostPing: Date.now(),
+          });
+
           io.to(code).emit('user-joined', {
             userId: socket.user._id,
             username: socket.user.name,
@@ -103,10 +119,15 @@ export const roomSocketHandler = (io) => {
             isPlaying: room.isPlaying,
             hostId: room.hostId,
             guestControlEnabled: room.guestControlEnabled,
+            permissionMode: room.permissionMode || 'guest-control',
+            coHosts: room.coHosts || [],
             users: room.users,
             syncVersion: room.syncVersion,
             queue: room.queue || [],
-            playbackRate: room.playbackRate || 1
+            playbackRate: room.playbackRate || 1,
+            sourceType: room.sourceType || 'youtube',
+            lastStateChange: room.lastStateChange,
+            serverTime: new Date().toISOString(),
           });
 
           const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -134,16 +155,36 @@ export const roomSocketHandler = (io) => {
       return room && room.hostId.toString() === userId.toString();
     };
 
-    // Helper: Checks if user can control playback (host OR guest control enabled)
+    // Helper: Checks if user can control playback based on permission mode
     const canUserControl = async (roomCode, userId) => {
       const room = await Room.findOne({ roomCode });
       if (!room) return false;
-      if (room.hostId.toString() === userId.toString()) return true;
-      return room.guestControlEnabled === true;
+      const hostIdStr = room.hostId.toString();
+      const userIdStr = userId.toString();
+      if (hostIdStr === userIdStr) return true;
+      if (room.coHosts?.some(c => c.toString() === userIdStr)) return true;
+
+      const mode = room.permissionMode || 'guest-control';
+      if (mode === 'host-only') return false;
+      if (mode === 'guest-control') return room.guestControlEnabled === true;
+      if (mode === 'democratic') return true;
+      if (mode === 'anarchy') return true;
+      return false;
+    };
+
+    // Helper: Checks if user is host or co-host
+    const isHostOrCoHost = async (roomCode, userId) => {
+      const room = await Room.findOne({ roomCode });
+      if (!room) return false;
+      const hostIdStr = room.hostId.toString();
+      const userIdStr = userId.toString();
+      if (hostIdStr === userIdStr) return true;
+      if (room.coHosts?.some(c => c.toString() === userIdStr)) return true;
+      return false;
     };
 
     // Video events
-    socket.on('video-change', async ({ videoId }) => {
+    socket.on('video-change', async ({ videoId, sourceType }) => {
       const code = socket.roomCode;
       if (!code) return;
 
@@ -154,16 +195,33 @@ export const roomSocketHandler = (io) => {
           return;
         }
 
-        // Fetch title and print system chat message
         const title = await getVideoTitle(videoId);
+
+        const updateFields = {
+          currentVideo: videoId,
+          currentVideoTitle: title,
+          currentTime: 0,
+          isPlaying: false,
+          lastStateChange: new Date(),
+        };
+        if (sourceType) updateFields.sourceType = sourceType;
 
         const room = await Room.findOneAndUpdate(
           { roomCode: code },
-          { $set: { currentVideo: videoId, currentVideoTitle: title, currentTime: 0, isPlaying: false, lastStateChange: new Date() }, $inc: { syncVersion: 1 } },
+          { $set: updateFields, $inc: { syncVersion: 1 } },
           { new: true }
         );
 
-        io.to(code).emit('video-change', { videoId, syncVersion: room.syncVersion });
+        io.to(code).emit('video-change', { videoId, sourceType: sourceType || 'youtube', syncVersion: room.syncVersion });
+
+        roomState.update(code, {
+          currentVideo: videoId,
+          currentTime: 0,
+          isPlaying: false,
+          syncVersion: room.syncVersion,
+          lastStateChange: new Date(),
+          sourceType: sourceType || room.sourceType || 'youtube',
+        });
 
         const systemMsg = await Message.create({
           roomId: room._id,
@@ -197,6 +255,13 @@ export const roomSocketHandler = (io) => {
 
         // Use broadcast so the emitter doesn't receive their own event back (prevents play/pause loop)
         socket.broadcast.to(code).emit('video-play', { currentTime, syncVersion: room.syncVersion });
+
+        roomState.update(code, {
+          isPlaying: true,
+          currentTime,
+          lastStateChange: new Date(),
+          syncVersion: room.syncVersion,
+        });
       } catch (err) {
         console.error(err);
       }
@@ -221,6 +286,13 @@ export const roomSocketHandler = (io) => {
 
         
         socket.broadcast.to(code).emit('video-pause', { currentTime, syncVersion: room.syncVersion });
+
+        roomState.update(code, {
+          isPlaying: false,
+          currentTime,
+          lastStateChange: new Date(),
+          syncVersion: room.syncVersion,
+        });
       } catch (err) {
         console.error(err);
       }
@@ -245,6 +317,12 @@ export const roomSocketHandler = (io) => {
 
         
         socket.broadcast.to(code).emit('video-seek', { currentTime, syncVersion: room.syncVersion });
+
+        roomState.update(code, {
+          currentTime,
+          lastStateChange: new Date(),
+          syncVersion: room.syncVersion,
+        });
       } catch (err) {
         console.error(err);
       }
@@ -255,9 +333,9 @@ export const roomSocketHandler = (io) => {
       if (!code) return;
 
       try {
-        const isHost = await validateHost(code, socket.user._id);
-        if (!isHost) {
-          socket.emit('error-msg', 'Access denied: Only the Host can change playback speed');
+        const authorized = await isHostOrCoHost(code, socket.user._id);
+        if (!authorized) {
+          socket.emit('error-msg', 'Access denied: Only the Host or Co-Host can change playback speed');
           return;
         }
 
@@ -268,6 +346,12 @@ export const roomSocketHandler = (io) => {
         );
 
         socket.broadcast.to(code).emit('video-playback-rate', { playbackRate, syncVersion: room.syncVersion });
+
+        roomState.update(code, {
+          playbackRate,
+          lastStateChange: new Date(),
+          syncVersion: room.syncVersion,
+        });
       } catch (err) {
         console.error(err);
       }
@@ -299,6 +383,13 @@ export const roomSocketHandler = (io) => {
               await room.save();
               success = true;
 
+              roomState.update(code, {
+                isPlaying: false,
+                currentTime: 0,
+                lastStateChange: new Date(),
+                syncVersion: room.syncVersion,
+              });
+
               io.to(code).emit('video-pause', { currentTime: 0, syncVersion: room.syncVersion });
               return;
             }
@@ -317,6 +408,14 @@ export const roomSocketHandler = (io) => {
 
             await room.save();
             success = true;
+
+            roomState.update(code, {
+              currentVideo: videoId,
+              currentTime: 0,
+              isPlaying: true,
+              lastStateChange: new Date(),
+              syncVersion: room.syncVersion,
+            });
 
             io.to(code).emit('video-change', { videoId, syncVersion: room.syncVersion });
             io.to(code).emit('video-play', { currentTime: 0, syncVersion: room.syncVersion });
@@ -363,6 +462,11 @@ export const roomSocketHandler = (io) => {
             isPlaying: true,
             playbackRate: room.playbackRate || 1
           });
+
+          roomState.update(code, {
+            currentTime,
+            lastStateChange: new Date(),
+          });
         }
       } catch (err) {
         console.error(err);
@@ -390,10 +494,13 @@ export const roomSocketHandler = (io) => {
           isPlaying: room.isPlaying,
           hostId: room.hostId,
           guestControlEnabled: room.guestControlEnabled,
+          permissionMode: room.permissionMode || 'guest-control',
+          coHosts: room.coHosts || [],
           users: room.users,
           syncVersion: room.syncVersion,
           queue: room.queue || [],
-          playbackRate: room.playbackRate || 1
+          playbackRate: room.playbackRate || 1,
+          sourceType: room.sourceType || 'youtube'
         });
       } catch (err) {
         console.error(err);
@@ -557,6 +664,73 @@ export const roomSocketHandler = (io) => {
       }
     });
 
+    socket.on('set-permission-mode', async ({ mode }) => {
+      const code = socket.roomCode;
+      if (!code) return;
+
+      try {
+        const isHost = await validateHost(code, socket.user._id);
+        if (!isHost) {
+          socket.emit('error-msg', 'Access denied: Only the Host can change permission mode');
+          return;
+        }
+
+        const validModes = ['host-only', 'guest-control', 'democratic', 'anarchy'];
+        if (!validModes.includes(mode)) {
+          socket.emit('error-msg', 'Invalid permission mode');
+          return;
+        }
+
+        const room = await Room.findOneAndUpdate(
+          { roomCode: code },
+          { permissionMode: mode },
+          { new: true }
+        );
+
+        io.to(code).emit('permission-mode-changed', { permissionMode: room.permissionMode });
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    socket.on('set-co-host', async ({ userId: targetUserId, isCoHost }) => {
+      const code = socket.roomCode;
+      if (!code) return;
+
+      try {
+        const isHost = await validateHost(code, socket.user._id);
+        if (!isHost) {
+          socket.emit('error-msg', 'Access denied: Only the Host can manage co-hosts');
+          return;
+        }
+
+        const room = await Room.findOne({ roomCode: code });
+        if (!room) return;
+
+        if (isCoHost) {
+          if (!room.coHosts.some(c => c.toString() === targetUserId)) {
+            room.coHosts.push(targetUserId);
+          }
+        } else {
+          room.coHosts = room.coHosts.filter(c => c.toString() !== targetUserId);
+        }
+
+        await room.save();
+        io.to(code).emit('co-host-updated', { coHosts: room.coHosts });
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    socket.on('host-ping', async () => {
+      const code = socket.roomCode;
+      if (!code) return;
+      const state = roomState.get(code);
+      if (state) {
+        roomState.update(code, { lastHostPing: Date.now() });
+      }
+    });
+
     socket.on('transfer-host', async ({ newHostId }) => {
       const code = socket.roomCode;
       if (!code) return;
@@ -659,7 +833,13 @@ export const roomSocketHandler = (io) => {
             }
 
             await room.save();
-            success = true; // Saved successfully without version conflict!
+            success = true;
+
+            if (room.users.length === 0) {
+              roomState.delete(code);
+            } else if (hostPromoted) {
+              roomState.update(code, { hostId: newHostId });
+            }
 
             io.to(code).emit('user-left', {
               userId: socket.user._id,
@@ -691,27 +871,20 @@ export const roomSocketHandler = (io) => {
   });
 
   // Server-authoritative periodic drift-correction heartbeat.
-  // Runs every 10s and sends the estimated playback position to GUESTS only.
-  // The host is excluded — they are the source of truth and don't need to be corrected.
-  setInterval(async () => {
+  // Uses in-memory RoomState cache instead of querying MongoDB.
+  // Runs every 3s and sends estimated playback position to GUESTS only.
+  setInterval(() => {
     try {
-      const activeRooms = await Room.find({ isPlaying: true });
+      const activeRooms = roomState.getAllPlaying();
       for (const room of activeRooms) {
         const roomSockets = io.sockets.adapter.rooms.get(room.roomCode);
         if (!roomSockets || roomSockets.size === 0) continue;
 
-        // Re-fetch room freshest data - another event may have changed syncVersion since find()
-        const freshRoom = await Room.findById(room._id).lean();
-        if (!freshRoom || !freshRoom.isPlaying) continue;
+        const estimatedTime = roomState.estimateCurrentTime(room.roomCode);
 
-        const elapsed = (Date.now() - new Date(freshRoom.lastStateChange).getTime()) / 1000;
-        const rate = freshRoom.playbackRate || 1;
-        const estimatedTime = freshRoom.currentTime + elapsed * rate;
-
-        
         const hostSocketId = [...roomSockets].find((sid) => {
           const s = io.sockets.sockets.get(sid);
-          return s && s.user && s.user._id.toString() === freshRoom.hostId.toString();
+          return s && s.user && s.user._id.toString() === String(room.hostId);
         });
 
         if (hostSocketId) {
@@ -721,9 +894,9 @@ export const roomSocketHandler = (io) => {
             if (guestSocket) {
               guestSocket.emit('video-sync', {
                 currentTime: estimatedTime,
-                syncVersion: freshRoom.syncVersion,
+                syncVersion: room.syncVersion,
                 isPlaying: true,
-                playbackRate: freshRoom.playbackRate || 1
+                playbackRate: room.playbackRate || 1
               });
             }
           }
@@ -732,7 +905,75 @@ export const roomSocketHandler = (io) => {
     } catch (err) {
       console.error('Server heartbeat error:', err.message);
     }
+  }, 3000);
+
+  // Send host-health-check ping to all room hosts every 5s
+  setInterval(() => {
+    roomState.forEach((code, state) => {
+      if (!state.hostId) return;
+      const roomSockets = io.sockets.adapter.rooms.get(code);
+      if (!roomSockets || roomSockets.size === 0) return;
+      for (const sid of roomSockets) {
+        const s = io.sockets.sockets.get(sid);
+        if (s && s.user && s.user._id.toString() === state.hostId.toString()) {
+          s.emit('host-health-check');
+          break;
+        }
+      }
+    });
   }, 5000);
+
+  // Host health check — monitors host ping/pong and auto-promotes if host is unresponsive
+  setInterval(async () => {
+    try {
+      const hostsToPromote = [];
+      roomState.forEach((code, state) => {
+        if (!state.lastHostPing) return;
+
+        const timeSinceLastPing = Date.now() - state.lastHostPing;
+        if (timeSinceLastPing < 15000) return;
+
+        hostsToPromote.push(code);
+      });
+
+      for (const code of hostsToPromote) {
+        const state = roomState.get(code);
+        if (!state) continue;
+
+        const room = await Room.findOne({ roomCode: code }).lean();
+        if (!room || room.users.length === 0) {
+          roomState.delete(code);
+          continue;
+        }
+
+        const currentHostId = state.hostId?.toString();
+        const nextUser = room.users.find(u => u.userId.toString() !== currentHostId);
+        if (!nextUser) continue;
+
+        const newHostId = nextUser.userId;
+        const newHostName = nextUser.username;
+
+      for (const { code, newHostId, newHostName } of hostsToPromote) {
+        try {
+          const room = await Room.findOne({ roomCode: code });
+          if (!room) continue;
+          room.hostId = newHostId;
+          await room.save();
+
+          roomState.update(code, { hostId: newHostId, lastHostPing: Date.now() });
+
+          io.to(code).emit('host-change', {
+            hostId: newHostId,
+            message: `Host was unresponsive. ${newHostName} is the new host! 👑`
+          });
+        } catch (err) {
+          console.error('Host auto-promotion error:', err.message);
+        }
+      }
+    } catch (err) {
+      console.error('Host health check error:', err.message);
+    }
+  }, 10000);
 
   
   const classifyCategory = (title) => {

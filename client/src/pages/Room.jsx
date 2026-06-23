@@ -6,7 +6,7 @@ import useSocketStore from '../store/socketStore';
 import useChatStore from '../store/chatStore';
 import Navbar from '../components/Navbar';
 import RoomHeader from '../components/RoomHeader';
-import VideoPlayer from '../components/VideoPlayer';
+import PlayerSlot from '../components/player/PlayerSlot';
 import UserList from '../components/UserList';
 import QueueList from '../components/QueueList';
 import ChatBox from '../components/ChatBox';
@@ -209,7 +209,7 @@ const Room = () => {
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch w-full flex-1 min-h-0">
           {/* Left Panel: Video Player */}
           <div className="flex-shrink-0 md:flex-1 min-w-0">
-            <VideoPlayer />
+            <PlayerSlot />
           </div>
 
           {/* Right Panel / Sidebar (Tabbed widget visible on mobile, or on desktop when open) */}

@@ -19,6 +19,10 @@ const roomSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  sourceType: {
+    type: String,
+    default: 'youtube'
+  },
   currentTime: {
     type: Number,
     default: 0
@@ -68,6 +72,15 @@ const roomSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  permissionMode: {
+    type: String,
+    enum: ['host-only', 'guest-control', 'democratic', 'anarchy'],
+    default: 'guest-control'
+  },
+  coHosts: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   syncVersion: {
     type: Number,
     default: 0

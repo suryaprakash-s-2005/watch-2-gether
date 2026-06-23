@@ -112,6 +112,20 @@ const useRoomStore = create((set) => ({
       };
     });
   },
+
+  setPermissionMode: (mode) => {
+    set((state) => {
+      if (!state.currentRoom) return {};
+      return { currentRoom: { ...state.currentRoom, permissionMode: mode } };
+    });
+  },
+
+  setCoHosts: (coHosts) => {
+    set((state) => {
+      if (!state.currentRoom) return {};
+      return { currentRoom: { ...state.currentRoom, coHosts } };
+    });
+  },
 }));
 
 export default useRoomStore;

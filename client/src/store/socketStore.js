@@ -55,10 +55,16 @@ const useSocketStore = create((set, get) => ({
         isPlaying: state.isPlaying,
         hostId: state.hostId,
         guestControlEnabled: state.guestControlEnabled,
+        permissionMode: state.permissionMode || 'guest-control',
+        coHosts: state.coHosts || [],
       });
       roomStore.setUsersList(state.users);
       roomStore.setQueueList(state.queue || []);
       
+      if (state.sourceType) {
+        usePlayerStore.getState().setSourceType(state.sourceType);
+      }
+
       if (state.currentVideo) {
         roomStore.setPlaybackCommand({ 
           type: 'sync', 
@@ -68,8 +74,6 @@ const useSocketStore = create((set, get) => ({
           playbackRate: state.playbackRate
         });
 
-        // Mark initial sync as ready for guests, but don't force isSynced yet.
-        // The playbackCommand handler will set isSynced after successful positioning.
         const currentUser = useAuthStore.getState().user;
         if (currentUser && state.hostId) {
           const hostIdStr = String(state.hostId._id || state.hostId);
@@ -135,6 +139,35 @@ const useSocketStore = create((set, get) => ({
       });
     });
 
+    socketInstance.on('permission-mode-changed', (data) => {
+      const roomStore = useRoomStore.getState();
+      roomStore.updateRoomPlayback({ permissionMode: data.permissionMode });
+      const modeLabels = {
+        'host-only': 'Host Only',
+        'guest-control': 'Guest Control',
+        'democratic': 'Democratic',
+        'anarchy': 'Anarchy',
+      };
+      roomStore.addChatMessage({
+        _id: `perm-${Date.now()}`,
+        senderName: 'System',
+        message: `Host changed permission mode to ${modeLabels[data.permissionMode] || data.permissionMode}.`,
+        timestamp: new Date(),
+        isSystem: true
+      });
+    });
+
+    socketInstance.on('co-host-updated', (data) => {
+      const roomStore = useRoomStore.getState();
+      roomStore.updateRoomPlayback({ coHosts: data.coHosts });
+    });
+
+    // Host health — respond to server pings
+    socketInstance.on('host-health-check', () => {
+      const { socket } = useSocketStore.getState();
+      if (socket) socket.emit('host-ping');
+    });
+
     socketInstance.on('queue-updated', (data) => {
       const roomStore = useRoomStore.getState();
       roomStore.setQueueList(data.queue);
@@ -143,12 +176,16 @@ const useSocketStore = create((set, get) => ({
     
     socketInstance.on('video-change', (data) => {
       const roomStore = useRoomStore.getState();
+      const playerStore = usePlayerStore.getState();
       roomStore.updateRoomPlayback({
         currentVideo: data.videoId,
         currentTime: 0,
         isPlaying: false,
         syncVersion: data.syncVersion
       });
+      if (data.sourceType) {
+        playerStore.setSourceType(data.sourceType);
+      }
       roomStore.setPlaybackCommand({ type: 'change', videoId: data.videoId, syncVersion: data.syncVersion });
     });
 
@@ -348,6 +385,16 @@ const useSocketStore = create((set, get) => ({
   emitRequestSync: () => {
     const { socket } = get();
     if (socket) socket.emit('request-sync');
+  },
+
+  emitSetPermissionMode: (mode) => {
+    const { socket } = get();
+    if (socket) socket.emit('set-permission-mode', { mode });
+  },
+
+  emitSetCoHost: (userId, isCoHost) => {
+    const { socket } = get();
+    if (socket) socket.emit('set-co-host', { userId, isCoHost });
   }
 }));
 

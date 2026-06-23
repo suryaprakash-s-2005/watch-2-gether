@@ -10,11 +10,11 @@ const usePlayerStore = create((set) => ({
   playbackRate: 1,
   isMiniPlayer: false,
   isClosed: true,
-  mediaType: 'youtube',
   slotRect: null,
   isSynced: true,
   hasSyncedInitial: false,
   syncStatus: 'synced',
+  sourceType: 'youtube',
 
   setRoomId: (roomId) => set({ roomId }),
   setCurrentVideoId: (currentVideoId) => set({ currentVideoId, isClosed: !currentVideoId }),
@@ -29,14 +29,16 @@ const usePlayerStore = create((set) => ({
   setIsSynced: (isSynced) => set({ isSynced }),
   setHasSyncedInitial: (value) => set({ hasSyncedInitial: value }),
   setSyncStatus: (syncStatus) => set({ syncStatus }),
+  setSourceType: (sourceType) => set({ sourceType }),
 
-  initPlayer: (roomId, videoId) => {
+  initPlayer: (roomId, videoId, sourceType) => {
     set({
       roomId,
       currentVideoId: videoId,
       isClosed: !videoId,
       isMiniPlayer: false,
       hasSyncedInitial: false,
+      sourceType: sourceType || 'youtube',
     });
   },
 
@@ -51,6 +53,7 @@ const usePlayerStore = create((set) => ({
       slotRect: null,
       isSynced: true,
       hasSyncedInitial: false,
+      sourceType: 'youtube',
     });
   },
 }));
