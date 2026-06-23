@@ -5,7 +5,8 @@ import { buildUrl } from './BasePlayer';
 const PLAYER_CONFIG = {
   youtube: {
     playerVars: {
-      autoplay: 1,
+      autoplay: 0,
+      playsinline: 1,
       modestbranding: 1,
       rel: 0,
       showinfo: 0,

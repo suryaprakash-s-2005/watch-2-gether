@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { flushSync } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import PlayerFactory from './PlayerFactory';
@@ -101,8 +102,13 @@ const PlayerContainer = () => {
 
   const handleTogglePlay = useCallback(() => {
     if (!hasControl) return;
+    if (isPlaying && !hasPlayedOnce) {
+      flushSync(() => setIsPlaying(false));
+      setIsPlaying(true);
+      return;
+    }
     setIsPlaying(!isPlaying);
-  }, [hasControl, isPlaying, setIsPlaying]);
+  }, [hasControl, isPlaying, hasPlayedOnce, setIsPlaying]);
 
   const handleToggleMute = useCallback(() => {
     setIsMuted(!isMuted);
@@ -151,6 +157,16 @@ const PlayerContainer = () => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handler);
     return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.reason?.name === 'AbortError' && e.reason?.message?.includes('play()')) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('unhandledrejection', handler);
+    return () => window.removeEventListener('unhandledrejection', handler);
   }, []);
 
   useEffect(() => {
