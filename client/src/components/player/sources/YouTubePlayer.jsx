@@ -5,7 +5,7 @@ import { buildUrl } from './BasePlayer';
 const PLAYER_CONFIG = {
   youtube: {
     playerVars: {
-      autoplay: 0,
+      autoplay: 1,
       playsinline: 1,
       modestbranding: 1,
       rel: 0,
@@ -13,7 +13,7 @@ const PLAYER_CONFIG = {
       iv_load_policy: 3,
       cc_load_policy: 1,
       enablejsapi: 1,
-      controls: 0, // Disable native YouTube controls
+      controls: 0,
       origin: typeof window !== 'undefined' ? window.location.origin : '',
     },
   },
@@ -47,8 +47,9 @@ const YouTubePlayer = forwardRef(({
         width="100%"
         height="100%"
         playing={playing}
+        muted={muted}
         controls={false}
-        volume={muted ? 0 : volume}
+        volume={volume}
         playbackRate={playbackRate}
         onReady={onReady}
         onPlay={onPlay}

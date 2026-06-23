@@ -312,9 +312,9 @@ const useSocketStore = create((set, get) => ({
     useChatStore.getState().clearTypingUsers();
   },
 
-  emitVideoChange: (videoId) => {
+  emitVideoChange: (videoId, sourceType) => {
     const { socket } = get();
-    if (socket) socket.emit('video-change', { videoId });
+    if (socket) socket.emit('video-change', { videoId, sourceType });
   },
 
   emitVideoPlay: (currentTime) => {

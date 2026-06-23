@@ -64,7 +64,7 @@ const RoomHeader = ({ isModal = false, onClose = null }) => {
     }
 
     setSourceType(parsed.type);
-    emitVideoChange(parsed.id);
+    emitVideoChange(parsed.id, parsed.type);
     setVideoUrl('');
   };
 

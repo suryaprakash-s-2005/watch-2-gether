@@ -197,14 +197,15 @@ export const roomSocketHandler = (io) => {
 
         const title = await getVideoTitle(videoId);
 
+        const detectedSource = sourceType || (videoId && videoId.length === 11 ? 'youtube' : 'youtube');
         const updateFields = {
           currentVideo: videoId,
           currentVideoTitle: title,
           currentTime: 0,
           isPlaying: false,
           lastStateChange: new Date(),
+          sourceType: detectedSource,
         };
-        if (sourceType) updateFields.sourceType = sourceType;
 
         const room = await Room.findOneAndUpdate(
           { roomCode: code },
@@ -212,7 +213,7 @@ export const roomSocketHandler = (io) => {
           { new: true }
         );
 
-        io.to(code).emit('video-change', { videoId, sourceType: sourceType || 'youtube', syncVersion: room.syncVersion });
+        io.to(code).emit('video-change', { videoId, sourceType: detectedSource, syncVersion: room.syncVersion });
 
         roomState.update(code, {
           currentVideo: videoId,
@@ -220,7 +221,7 @@ export const roomSocketHandler = (io) => {
           isPlaying: false,
           syncVersion: room.syncVersion,
           lastStateChange: new Date(),
-          sourceType: sourceType || room.sourceType || 'youtube',
+          sourceType: detectedSource,
         });
 
         const systemMsg = await Message.create({

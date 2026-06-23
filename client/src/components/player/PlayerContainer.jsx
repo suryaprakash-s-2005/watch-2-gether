@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { flushSync } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import PlayerFactory from './PlayerFactory';
@@ -53,6 +52,14 @@ const PlayerContainer = () => {
     setHasPlayedOnce(false); // eslint-disable-line react-hooks/set-state-in-effect
   }, [currentVideoId]); 
 
+  useEffect(() => {
+    if (!isReady || !isPlaying || hasPlayedOnce) return;
+    const timer = setTimeout(() => {
+      setHasPlayedOnce(true);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [isReady, isPlaying, hasPlayedOnce]);
+
   const isHost = currentRoom?.hostId && user?._id &&
     String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
   const hasControl = isHost || currentRoom?.guestControlEnabled;
@@ -102,13 +109,8 @@ const PlayerContainer = () => {
 
   const handleTogglePlay = useCallback(() => {
     if (!hasControl) return;
-    if (isPlaying && !hasPlayedOnce) {
-      flushSync(() => setIsPlaying(false));
-      setIsPlaying(true);
-      return;
-    }
     setIsPlaying(!isPlaying);
-  }, [hasControl, isPlaying, hasPlayedOnce, setIsPlaying]);
+  }, [hasControl, isPlaying, setIsPlaying]);
 
   const handleToggleMute = useCallback(() => {
     setIsMuted(!isMuted);
