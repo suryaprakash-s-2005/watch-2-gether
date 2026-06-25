@@ -62,23 +62,23 @@ const PlayerSyncManager = ({ playerRef, isReady, isValidVideo, children }) => {
   }, []);
 
   const handlePlay = useCallback(() => {
-    if (!hasControl) return;
+    if (!hasControl || isSuppressed()) return;
     const time = getCurrentTime();
     setIsPlaying(true);
     updateRoomPlayback({ isPlaying: true, currentTime: time });
     emitVideoPlay(time);
     suppress(1200);
-  }, [hasControl, getCurrentTime, setIsPlaying, updateRoomPlayback, emitVideoPlay, suppress]);
+  }, [hasControl, getCurrentTime, setIsPlaying, updateRoomPlayback, emitVideoPlay, suppress, isSuppressed]);
 
   const handlePause = useCallback(() => {
-    if (!hasControl) return;
+    if (!hasControl || isSuppressed()) return;
     if (typeof document !== 'undefined' && document.hidden) return;
     const time = getCurrentTime();
     setIsPlaying(false);
     updateRoomPlayback({ isPlaying: false, currentTime: time });
     emitVideoPause(time);
     suppress(1200);
-  }, [hasControl, getCurrentTime, setIsPlaying, updateRoomPlayback, emitVideoPause, suppress]);
+  }, [hasControl, getCurrentTime, setIsPlaying, updateRoomPlayback, emitVideoPause, suppress, isSuppressed]);
 
   const emitSeekToServer = useCallback((seconds) => {
     if (!hasControl) return;
