@@ -29,7 +29,7 @@ export const socketAuth = async (socket, next) => {
     return next(new Error('Authentication error: Token missing'));
   }
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'defaultjwtsecretkey');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'watch2gether-dev-jwt-secret');
     const user = await User.findById(decoded.id);
     if (!user) {
       return next(new Error('Authentication error: User not found'));

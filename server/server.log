@@ -1,0 +1,4 @@
+[Cleanup] Job started (runs every hour)
+Watch-2-Gether backend server listening on PORT 5000
+Accepting CORS requests from: http://localhost:5173
+MongoDB Connected: 127.0.0.1

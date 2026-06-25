@@ -20,7 +20,7 @@ const Layout = ({ children }) => {
 
   return (
     <PlayerProvider>
-      <div className={`flex flex-col min-h-dvh transition-all duration-200 ${hasActiveMiniPlayerOnMobile ? 'pb-[88px] safe-area-bottom' : ''}`}>
+      <div className={`flex flex-col min-h-dvh transition-all duration-200 ${hasActiveMiniPlayerOnMobile ? 'pb-[136px] safe-area-bottom' : ''}`}>
         {children}
       </div>
       <PlayerContainer />

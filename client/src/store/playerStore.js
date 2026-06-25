@@ -15,6 +15,7 @@ const usePlayerStore = create((set) => ({
   hasSyncedInitial: false,
   syncStatus: 'synced',
   sourceType: 'youtube',
+  captionsEnabled: false,
 
   setRoomId: (roomId) => set({ roomId }),
   setCurrentVideoId: (currentVideoId) => set({ currentVideoId, isClosed: !currentVideoId }),
@@ -30,6 +31,7 @@ const usePlayerStore = create((set) => ({
   setHasSyncedInitial: (value) => set({ hasSyncedInitial: value }),
   setSyncStatus: (syncStatus) => set({ syncStatus }),
   setSourceType: (sourceType) => set({ sourceType }),
+  setCaptionsEnabled: (captionsEnabled) => set({ captionsEnabled }),
 
   initPlayer: (roomId, videoId, sourceType) => {
     set({

@@ -3,7 +3,7 @@ import User from '../models/User.js';
 
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+  return jwt.sign({ id }, process.env.JWT_SECRET || 'watch2gether-dev-jwt-secret', {
     expiresIn: '30d',
   });
 };

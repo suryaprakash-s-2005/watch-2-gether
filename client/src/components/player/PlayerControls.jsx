@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
-  Maximize, Minimize, Lock, Unlock, Crown,
+  Maximize, Minimize, Lock, Unlock, Crown, Subtitles,
 } from 'lucide-react';
 import useSocketStore from '../../store/socketStore';
 import useRoomStore from '../../store/roomStore';
@@ -43,8 +43,9 @@ const PlayerControls = ({
   onProgressPointerLeave, onProgressPointerCancel,
   videoTitle, onExpand, onClose, onToggleFullscreen, isFullscreen,
   onToggleTheaterMode, isTheaterMode,
-  onTogglePiP, isPiPActive, nativePiPSupported,
+  onTogglePiP, isPiPActive,
   onSkipForward, onSkipBackward,
+  onToggleCaptions, captionsEnabled,
 }) => {
   const { currentRoom, roomUsers } = useRoomStore();
   const { user } = useAuthStore();
@@ -79,10 +80,57 @@ const PlayerControls = ({
   const isMiniDesktop = mode === 'mini-desktop';
   const isMiniMobile = mode === 'mini-mobile';
   const isCompact = mode === 'compact';
+  const isFullMobile = mode === 'full-mobile';
+
+  const doubleTapRef = useRef({ lastTap: 0, timer: null });
+  const isMobile = mode === 'full-mobile' || mode === 'mini-mobile' || mode === 'compact';
+
+  const handleOverlayClick = useCallback((e) => {
+    if (
+      e.target.closest('button') ||
+      e.target.closest('input') ||
+      e.target.closest('select') ||
+      e.target.closest('.no-click-propagation')
+    ) {
+      return;
+    }
+
+    if (!isMobile) {
+      onTogglePlay();
+      return;
+    }
+
+    const now = Date.now();
+    const dt = doubleTapRef.current;
+    if (now - dt.lastTap < 300) {
+      if (dt.timer) clearTimeout(dt.timer);
+      dt.timer = null;
+      dt.lastTap = 0;
+
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clientX = e.clientX;
+      if (clientX !== undefined) {
+        const x = clientX - rect.left;
+        if (x < rect.width / 2) {
+          onSkipBackward();
+        } else {
+          onSkipForward();
+        }
+      }
+    } else {
+      dt.lastTap = now;
+      dt.timer = setTimeout(() => {
+        dt.lastTap = 0;
+        dt.timer = null;
+        setShowControls(prev => !prev);
+        startHideTimer();
+      }, 300);
+    }
+  }, [isMobile, onTogglePlay, onSkipBackward, onSkipForward, startHideTimer]);
 
   if (isMiniMobile) {
     return (
-      <div className="w-full h-full flex flex-col justify-between px-3 py-1.5 gap-0.5 relative select-none">
+      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm z-10 flex flex-col justify-between px-3 py-2 select-none pointer-events-auto no-click-propagation">
         <div className="flex items-center justify-between gap-2 min-h-0">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="min-w-0">
@@ -145,7 +193,7 @@ const PlayerControls = ({
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-slate-950/80 opacity-0 hover:opacity-100 transition-opacity duration-200 flex flex-col justify-between p-3 z-10 pointer-events-auto">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            {onTogglePiP && nativePiPSupported && (
+            {onTogglePiP && (
               <button onClick={(e) => { e.stopPropagation(); onTogglePiP(); }}
                 className="p-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-white transition cursor-pointer"
                 aria-label="Picture-in-Picture">
@@ -259,42 +307,164 @@ const PlayerControls = ({
     );
   }
 
+  if (isFullMobile) {
+    return (
+      <div ref={controlsRef}
+        className="absolute inset-0 z-30 overflow-hidden"
+        onMouseMove={() => { setShowControls(true); startHideTimer(); }}
+        onMouseLeave={() => setShowControls(false)}
+        onClick={handleOverlayClick}>
+
+        <div className={`absolute inset-0 flex flex-col justify-end transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="bg-gradient-to-t from-black/80 via-black/50 to-transparent px-3 pb-3 pt-12 pointer-events-auto no-click-propagation">
+
+            <div className="flex items-center justify-between mb-2 px-1">
+              <div className="flex items-center gap-2">
+                <SyncIndicator status={syncStatus} />
+                {isHost ? (
+                  <div className="flex items-center gap-1 text-[11px] font-semibold text-amber-400">
+                    <Crown size={12} />
+                    <span>Host</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                    <Crown size={12} className="text-amber-500/60" />
+                    <span>Host: {hostName}</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {isHost ? (
+                  <button onClick={() => emitSetGuestControl(!guestControlEnabled)}
+                    className={`flex items-center gap-1 text-[11px] font-semibold transition rounded px-2 py-1 cursor-pointer ${guestControlEnabled ? 'text-green-400 hover:text-green-300 hover:bg-green-900/20' : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/40'}`}
+                    title={guestControlEnabled ? 'Disable guest control' : 'Enable guest control'}>
+                    {guestControlEnabled ? <Unlock size={12} /> : <Lock size={12} />}
+                    <span>{guestControlEnabled ? 'Guests can control' : 'Guests locked'}</span>
+                  </button>
+                ) : (
+                  !hasControl && (
+                    <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                      <Lock size={12} />
+                      <span>Controls locked</span>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mb-2 px-0.5">
+              <span className="text-[12px] text-slate-300 font-medium tabular-nums">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                <button onClick={onSkipBackward} disabled={!hasControl}
+                  className={`p-2 transition rounded-lg flex items-center justify-center ${hasControl ? 'text-slate-300 hover:text-white hover:bg-white/10 cursor-pointer' : 'text-slate-600 cursor-not-allowed'}`}
+                  aria-label="Back 10s">
+                  <SkipBack size={18} />
+                </button>
+                <button onClick={onTogglePlay} disabled={!hasControl}
+                  className={`p-2.5 rounded-full transition flex items-center justify-center ${hasControl ? 'bg-youtube-red hover:bg-youtube-hover text-white shadow-lg shadow-youtube-red/20 hover:scale-105 active:scale-95 cursor-pointer' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
+                  aria-label={isPlaying ? 'Pause' : 'Play'}>
+                  {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+                </button>
+                <button onClick={onSkipForward} disabled={!hasControl}
+                  className={`p-2 transition rounded-lg flex items-center justify-center ${hasControl ? 'text-slate-300 hover:text-white hover:bg-white/10 cursor-pointer' : 'text-slate-600 cursor-not-allowed'}`}
+                  aria-label="Forward 10s">
+                  <SkipForward size={18} />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 group/vol">
+                  <button onClick={onToggleMute}
+                    className="p-1.5 text-slate-300 hover:text-white transition cursor-pointer flex items-center justify-center"
+                    aria-label={isMuted ? 'Unmute' : 'Mute'}>
+                    {(isMuted || localVolume === 0) ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                  </button>
+                </div>
+
+                {onToggleCaptions && (
+                  <button onClick={onToggleCaptions}
+                    className={`p-1.5 rounded-lg transition cursor-pointer flex items-center justify-center ${captionsEnabled ? 'text-youtube-red bg-youtube-red/10' : 'text-slate-300 hover:text-white hover:bg-white/10'}`}
+                    aria-label={captionsEnabled ? 'Disable subtitles' : 'Enable subtitles'}
+                    title={captionsEnabled ? 'Subtitles on' : 'Subtitles off'}>
+                    <Subtitles size={16} />
+                  </button>
+                )}
+
+                <div className="relative">
+                  <button onClick={() => setShowRateMenu(!showRateMenu)}
+                    className={`p-1.5 text-[12px] font-bold rounded-lg transition cursor-pointer flex items-center justify-center min-w-[36px] ${hasControl ? 'text-slate-300 hover:text-white hover:bg-white/10' : 'text-slate-500 cursor-not-allowed'}`}
+                    disabled={!hasControl}>
+                    {playbackRate}x
+                  </button>
+                  {showRateMenu && hasControl && (
+                    <div className="absolute bottom-full right-0 mb-2 bg-slate-950 border border-slate-800/80 rounded-xl shadow-2xl overflow-hidden z-30">
+                      {PLAYBACK_RATES.map((rate) => (
+                        <button key={rate} onClick={() => { onPlaybackRateChange(rate); setShowRateMenu(false); }}
+                          className={`block w-full px-5 py-2.5 text-sm font-bold text-left transition hover:bg-slate-800 cursor-pointer ${playbackRate === rate ? 'text-youtube-red bg-youtube-red/10' : 'text-slate-300'}`}>
+                          {rate}x
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {onToggleFullscreen && (
+                  <button onClick={onToggleFullscreen}
+                    className="p-1.5 text-slate-300 hover:text-white transition cursor-pointer flex items-center justify-center"
+                    aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
+                    {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {progressRef && (
+              <div className="mt-2 group px-0.5">
+                {isHoveringSeek && (
+                  <div className="absolute bottom-full mb-2 -translate-x-1/2 pointer-events-none z-30"
+                    style={{ left: `${seekHoverPos * 100}%` }}>
+                    <div className="bg-slate-950/90 border border-slate-700/80 rounded-lg px-2.5 py-1.5 shadow-2xl relative backdrop-blur-md">
+                      <span className="text-[12px] font-bold text-white tabular-nums whitespace-nowrap">
+                        {formatTime(seekHoverTime)}
+                      </span>
+                      <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-950 border-r border-b border-slate-700/80 rotate-45" />
+                    </div>
+                  </div>
+                )}
+                <div ref={progressRef}
+                  className="w-full h-2 bg-white/10 rounded-full cursor-pointer group-hover:h-3 transition-all duration-150 relative"
+                  onPointerDown={onProgressPointerDown}
+                  onPointerMove={onProgressPointerMove}
+                  onPointerUp={onProgressPointerUp}
+                  onPointerLeave={onProgressPointerLeave}
+                  onPointerCancel={onProgressPointerCancel}>
+                  <div className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full relative transition-[width] duration-75"
+                    style={{ width: `${progressPercent}%` }}>
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg shadow-black/30 ring-2 ring-white/20 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-150" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div ref={controlsRef}
       className="absolute inset-0 z-30"
       onMouseMove={() => { setShowControls(true); startHideTimer(); }}
-      onMouseLeave={() => setShowControls(false)}>
-
-      {progressRef && (
-        <div className="absolute bottom-0 left-0 right-0 z-30 group px-2 pb-[6px]">
-          {isHoveringSeek && (
-            <div className="absolute bottom-full mb-2 -translate-x-1/2 pointer-events-none z-30"
-              style={{ left: `${seekHoverPos * 100}%` }}>
-              <div className="bg-slate-950/90 border border-slate-700/80 rounded-lg px-2 py-1 shadow-2xl relative backdrop-blur-md">
-                <span className="text-[11px] font-bold text-white tabular-nums whitespace-nowrap">
-                  {formatTime(seekHoverTime)}
-                </span>
-                <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-950 border-r border-b border-slate-700/80 rotate-45" />
-              </div>
-            </div>
-          )}
-          <div ref={progressRef}
-            className="w-full h-1.5 bg-white/10 rounded-full cursor-pointer group-hover:h-2 transition-all duration-150 relative"
-            onPointerDown={onProgressPointerDown}
-            onPointerMove={onProgressPointerMove}
-            onPointerUp={onProgressPointerUp}
-            onPointerLeave={onProgressPointerLeave}
-            onPointerCancel={onProgressPointerCancel}>
-            <div className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full relative transition-[width] duration-75"
-              style={{ width: `${progressPercent}%` }}>
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-lg shadow-black/30 ring-2 ring-white/20 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-150" />
-            </div>
-          </div>
-        </div>
-      )}
+      onMouseLeave={() => setShowControls(false)}
+      onClick={handleOverlayClick}>
 
       <div className={`absolute inset-0 flex flex-col justify-end transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="bg-gradient-to-t from-black/80 via-black/50 to-transparent px-3 pb-2 pt-12 pointer-events-auto backdrop-blur-sm">
+        <div className="bg-gradient-to-t from-black/80 via-black/50 to-transparent px-3 pb-2 pt-12 pointer-events-auto no-click-propagation">
 
           <div className="flex items-center justify-between mb-1.5 px-1">
             <div className="flex items-center gap-2">
@@ -380,6 +550,15 @@ const PlayerControls = ({
                 )}
               </div>
 
+              {onToggleCaptions && (
+                <button onClick={onToggleCaptions}
+                  className={`p-1 rounded-lg transition cursor-pointer flex items-center justify-center ${captionsEnabled ? 'text-youtube-red bg-youtube-red/10' : 'text-slate-300 hover:text-white hover:bg-white/10'}`}
+                  aria-label={captionsEnabled ? 'Disable subtitles' : 'Enable subtitles'}
+                  title={captionsEnabled ? 'Subtitles on' : 'Subtitles off'}>
+                  <Subtitles size={14} />
+                </button>
+              )}
+
               <div className="relative">
                 <button onClick={() => setShowRateMenu(!showRateMenu)}
                   className={`p-1 text-[11px] font-bold rounded-lg transition cursor-pointer flex items-center justify-center min-w-[32px] ${hasControl ? 'text-slate-300 hover:text-white hover:bg-white/10' : 'text-slate-500 cursor-not-allowed'}`}
@@ -398,7 +577,7 @@ const PlayerControls = ({
                 )}
               </div>
 
-              {onTogglePiP && nativePiPSupported && (
+              {onTogglePiP && (
                 <button onClick={onTogglePiP}
                   className="p-1 text-slate-300 hover:text-white transition cursor-pointer flex items-center justify-center"
                   aria-label={isPiPActive ? 'Exit Picture-in-Picture' : 'Picture-in-Picture'}
@@ -433,6 +612,34 @@ const PlayerControls = ({
               )}
             </div>
           </div>
+
+          {progressRef && (
+            <div className="mt-1.5 group px-0.5">
+              {isHoveringSeek && (
+                <div className="absolute bottom-full mb-2 -translate-x-1/2 pointer-events-none z-30"
+                  style={{ left: `${seekHoverPos * 100}%` }}>
+                  <div className="bg-slate-950/90 border border-slate-700/80 rounded-lg px-2 py-1 shadow-2xl relative backdrop-blur-md">
+                    <span className="text-[11px] font-bold text-white tabular-nums whitespace-nowrap">
+                      {formatTime(seekHoverTime)}
+                    </span>
+                    <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-950 border-r border-b border-slate-700/80 rotate-45" />
+                  </div>
+                </div>
+              )}
+              <div ref={progressRef}
+                className="w-full h-1.5 bg-white/10 rounded-full cursor-pointer group-hover:h-2 transition-all duration-150 relative"
+                onPointerDown={onProgressPointerDown}
+                onPointerMove={onProgressPointerMove}
+                onPointerUp={onProgressPointerUp}
+                onPointerLeave={onProgressPointerLeave}
+                onPointerCancel={onProgressPointerCancel}>
+                <div className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full relative transition-[width] duration-75"
+                  style={{ width: `${progressPercent}%` }}>
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-lg shadow-black/30 ring-2 ring-white/20 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-150" />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

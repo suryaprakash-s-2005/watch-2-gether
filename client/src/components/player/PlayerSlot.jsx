@@ -113,12 +113,7 @@ const PlayerSlot = () => {
             Join & Sync Stream
           </button>
         </div>
-      ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-950">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-youtube-red mb-3" />
-          <p className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Synchronizing...</p>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 };

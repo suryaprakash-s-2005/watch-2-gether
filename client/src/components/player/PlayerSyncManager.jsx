@@ -12,7 +12,7 @@ const PlayerSyncManager = ({ playerRef, isReady, isValidVideo, children }) => {
 
   const { currentRoom, playbackCommand, setPlaybackCommand, updateRoomPlayback } = useRoomStore();
   const { user } = useAuthStore();
-  const { emitVideoPlay, emitVideoPause, emitVideoSeek } = useSocketStore();
+  const { emitVideoPlay, emitVideoPause, emitVideoSeek, emitVideoSync } = useSocketStore();
 
   const localVersionRef = useRef(0);
   const suppressUntil = useRef(0);
@@ -62,17 +62,15 @@ const PlayerSyncManager = ({ playerRef, isReady, isValidVideo, children }) => {
   }, []);
 
   const handlePlay = useCallback(() => {
-    if (isSuppressed()) return;
     if (!hasControl) return;
     const time = getCurrentTime();
     setIsPlaying(true);
     updateRoomPlayback({ isPlaying: true, currentTime: time });
     emitVideoPlay(time);
     suppress(1200);
-  }, [isSuppressed, hasControl, getCurrentTime, setIsPlaying, updateRoomPlayback, emitVideoPlay, suppress]);
+  }, [hasControl, getCurrentTime, setIsPlaying, updateRoomPlayback, emitVideoPlay, suppress]);
 
   const handlePause = useCallback(() => {
-    if (isSuppressed()) return;
     if (!hasControl) return;
     if (typeof document !== 'undefined' && document.hidden) return;
     const time = getCurrentTime();
@@ -80,15 +78,14 @@ const PlayerSyncManager = ({ playerRef, isReady, isValidVideo, children }) => {
     updateRoomPlayback({ isPlaying: false, currentTime: time });
     emitVideoPause(time);
     suppress(1200);
-  }, [isSuppressed, hasControl, getCurrentTime, setIsPlaying, updateRoomPlayback, emitVideoPause, suppress]);
+  }, [hasControl, getCurrentTime, setIsPlaying, updateRoomPlayback, emitVideoPause, suppress]);
 
   const emitSeekToServer = useCallback((seconds) => {
-    if (isSuppressed()) return;
     if (!hasControl) return;
     updateRoomPlayback({ currentTime: seconds });
     emitVideoSeek(seconds);
     suppress(1200);
-  }, [isSuppressed, hasControl, updateRoomPlayback, emitVideoSeek, suppress]);
+  }, [hasControl, updateRoomPlayback, emitVideoSeek, suppress]);
 
   const onPlayerReady = useCallback(() => {
     if (lastSyncVideoIdRef.current === currentVideoId) return;
@@ -169,6 +166,20 @@ const PlayerSyncManager = ({ playerRef, isReady, isValidVideo, children }) => {
   }, [playbackCommand, isValidVideo, isReady, isPlaying, setIsPlaying, setIsSynced, setPlaybackCommand,
       updateRoomPlayback, setSyncStatus, applyPlaybackRate, seekTo, suppress, getCurrentTime,
       setCurrentTime, currentRoom?.duration, getDriftThreshold]);
+
+  // Host periodic synchronization broadcast
+  useEffect(() => {
+    if (!isHost || !isValidVideo || !isPlaying || !isReady) return;
+
+    const interval = setInterval(() => {
+      const time = getCurrentTime();
+      if (time > 0) {
+        emitVideoSync(time);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isHost, isValidVideo, isPlaying, isReady, getCurrentTime, emitVideoSync]);
 
   useEffect(() => {
     if (isHost || !isValidVideo || !isPlaying) return;

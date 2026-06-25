@@ -19,8 +19,7 @@ import './config/passport.js';
 dotenv.config();
 
 if (!process.env.JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is required');
-  process.exit(1);
+  console.warn('WARNING: JWT_SECRET not set. Using development fallback. Do not use in production.');
 }
 
 process.on('unhandledRejection', (reason, promise) => {

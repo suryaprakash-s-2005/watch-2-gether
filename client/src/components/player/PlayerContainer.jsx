@@ -22,7 +22,7 @@ const PlayerContainer = () => {
     currentVideoId, currentTime, isPlaying, volume, isMuted, playbackRate,
     isMiniPlayer, isClosed, slotRect, isSynced, sourceType: storeSourceType,
     setCurrentTime, setIsMuted, setPlaybackRate,
-    setIsMiniPlayer, setIsPlaying,
+    setIsMiniPlayer, captionsEnabled, setCaptionsEnabled,
   } = playerStore;
 
   const { currentRoom, updateRoomPlayback } = useRoomStore();
@@ -30,12 +30,12 @@ const PlayerContainer = () => {
 
   const playerRef = useRef(null);
   const dragConstraintsRef = useRef(null);
+  const syncApiRef = useRef(null);
   const [duration, setDuration] = useState(0);
   const [localVolume, setLocalVolume] = useState(volume);
   const [isReady, setIsReady] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [seekHoverPos, setSeekHoverPos] = useState(0);
@@ -48,24 +48,17 @@ const PlayerContainer = () => {
   const [miniWidth, setMiniWidth] = useState(320);
   const [videoTitle, setVideoTitle] = useState('');
 
-  useEffect(() => {
-    setHasPlayedOnce(false); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [currentVideoId]); 
-
-  useEffect(() => {
-    if (!isReady || !isPlaying || hasPlayedOnce) return;
-    const timer = setTimeout(() => {
-      setHasPlayedOnce(true);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [isReady, isPlaying, hasPlayedOnce]);
 
   const isHost = currentRoom?.hostId && user?._id &&
     String(currentRoom.hostId._id || currentRoom.hostId) === String(user._id);
   const hasControl = isHost || currentRoom?.guestControlEnabled;
 
   const isRoomRoute = location.pathname.startsWith('/room/');
-  const isRoomMode = isRoomRoute && !isMiniPlayer && !!slotRect;
+  const fallbackSlotRect = isRoomRoute && !isMiniPlayer && !slotRect
+    ? { left: 12, top: 80, width: window.innerWidth - 24, height: window.innerHeight * 0.55 }
+    : null;
+  const effectiveSlotRect = slotRect || fallbackSlotRect;
+  const isRoomMode = isRoomRoute && !isMiniPlayer && !!effectiveSlotRect;
 
   const sourceType = useMemo(() => {
     if (storeSourceType) return storeSourceType;
@@ -81,6 +74,10 @@ const PlayerContainer = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    setIsReady(false);
+  }, [currentVideoId]);
 
   useEffect(() => {
     if (isRoomRoute) {
@@ -109,16 +106,45 @@ const PlayerContainer = () => {
 
   const handleTogglePlay = useCallback(() => {
     if (!hasControl) return;
-    setIsPlaying(!isPlaying);
-  }, [hasControl, isPlaying, setIsPlaying]);
+    const api = syncApiRef.current;
+    if (!api) return;
+    
+    if (playerRef.current) {
+       try {
+         if (isPlaying) {
+           playerRef.current.pause();
+         } else {
+           playerRef.current.play();
+         }
+       } catch (e) { console.warn("Direct play/pause failed", e); }
+    }
+    
+    if (isPlaying) {
+      api.handlePause();
+    } else {
+      api.handlePlay();
+    }
+  }, [hasControl, isPlaying]);
 
   const handleToggleMute = useCallback(() => {
     setIsMuted(!isMuted);
   }, [isMuted, setIsMuted]);
 
+  const handleToggleCaptions = useCallback(() => {
+    const next = !captionsEnabled;
+    setCaptionsEnabled(next);
+    if (playerRef.current && typeof playerRef.current.setCaptions === 'function') {
+      playerRef.current.setCaptions(next);
+    }
+  }, [captionsEnabled, setCaptionsEnabled]);
+
   const handleVolumeChange = useCallback((newVolume) => {
     setLocalVolume(newVolume);
-  }, []);
+    if (newVolume > 0 && isMuted) {
+      setIsMuted(false);
+    }
+    usePlayerStore.getState().setVolume(newVolume);
+  }, [isMuted, setIsMuted]);
 
   const handlePlaybackRateChange = useCallback((newRate) => {
     if (!hasControl) return;
@@ -210,10 +236,10 @@ const PlayerContainer = () => {
 
   const handleTogglePiP = useCallback(async () => {
     const result = await togglePiP();
-    if (!result && nativePiPSupported) {
+    if (!result) {
       setIsMiniPlayer(true);
     }
-  }, [togglePiP, nativePiPSupported, setIsMiniPlayer]);
+  }, [togglePiP, setIsMiniPlayer]);
 
   const handleToggleTheaterMode = useCallback(() => {
     setIsTheaterMode((prev) => !prev);
@@ -236,15 +262,13 @@ const PlayerContainer = () => {
 
   const skipForward = useCallback(() => {
     if (!hasControl) return;
-    setHasPlayedOnce(true);
     handleSeekTo(Math.min(currentTime + 10, duration));
-  }, [hasControl, currentTime, duration, handleSeekTo, setHasPlayedOnce]);
+  }, [hasControl, currentTime, duration, handleSeekTo]);
 
   const skipBackward = useCallback(() => {
     if (!hasControl) return;
-    setHasPlayedOnce(true);
     handleSeekTo(Math.max(currentTime - 10, 0));
-  }, [hasControl, currentTime, handleSeekTo, setHasPlayedOnce]);
+  }, [hasControl, currentTime, handleSeekTo]);
 
   const formatTime = useCallback((seconds) => {
     if (isNaN(seconds) || seconds === null) return '0:00';
@@ -254,12 +278,12 @@ const PlayerContainer = () => {
   }, []);
 
   const handleProgressPointerDown = useCallback((e) => {
+    e.preventDefault();
     if (!progressRef.current || duration <= 0) return;
     const rect = progressRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
     const time = x * duration;
     handleSeekTo(time);
-    e.currentTarget.setPointerCapture(e.pointerId);
   }, [duration, handleSeekTo]);
 
   const handleProgressPointerMove = useCallback((e) => {
@@ -283,39 +307,7 @@ const PlayerContainer = () => {
     setIsHoveringSeek(false);
   }, []);
 
-  const doubleTapRef = useRef({ lastTap: 0, timer: null });
-  const handlePlayerClick = useCallback((e) => {
-    if (!isMobile || !hasControl || !duration) return;
-    const now = Date.now();
-    const dt = doubleTapRef.current;
-    if (now - dt.lastTap < 300) {
-      if (dt.timer) clearTimeout(dt.timer);
-      dt.timer = null;
-      dt.lastTap = 0;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      if (x < rect.width / 2) {
-        handleSeekTo(Math.max(currentTime - 10, 0));
-      } else {
-        handleSeekTo(Math.min(currentTime + 10, duration));
-      }
-    } else {
-      dt.lastTap = now;
-      dt.timer = setTimeout(() => {
-        dt.lastTap = 0;
-        dt.timer = null;
-        handleTogglePlay();
-      }, 300);
-    }
-  }, [isMobile, hasControl, duration, currentTime, handleSeekTo, handleTogglePlay]);
 
-  useEffect(() => {
-    if (!isRoomMode || !isMobile) return;
-    const el = document.querySelector('[data-fullscreen-container]');
-    if (!el) return;
-    el.addEventListener('click', handlePlayerClick);
-    return () => el.removeEventListener('click', handlePlayerClick);
-  }, [isRoomMode, isMobile, handlePlayerClick]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -391,6 +383,7 @@ const PlayerContainer = () => {
     onToggleTheaterMode: handleToggleTheaterMode, isTheaterMode,
     onTogglePiP: handleTogglePiP, isPiPActive, nativePiPSupported,
     onSkipForward: skipForward, onSkipBackward: skipBackward,
+    onToggleCaptions: handleToggleCaptions, captionsEnabled,
   };
 
   if (!isAuthenticated || isClosed || !isValidVideo) return null;
@@ -398,10 +391,10 @@ const PlayerContainer = () => {
   const style = isRoomMode
     ? {
         position: 'fixed',
-        left: `${slotRect?.left || 0}px`,
-        top: `${slotRect?.top || 0}px`,
-        width: `${slotRect?.width || 640}px`,
-        height: `${slotRect?.height || 360}px`,
+        left: `${effectiveSlotRect?.left || 0}px`,
+        top: `${effectiveSlotRect?.top || 0}px`,
+        width: `${effectiveSlotRect?.width || 640}px`,
+        height: `${effectiveSlotRect?.height || 360}px`,
         zIndex: 40,
         borderRadius: '1.5rem',
         overflow: 'hidden',
@@ -414,7 +407,7 @@ const PlayerContainer = () => {
         bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
         left: '12px',
         width: 'calc(100% - 24px)',
-        height: '72px',
+        height: '76px',
         zIndex: 50,
         borderRadius: '1rem',
         overflow: 'hidden',
@@ -439,31 +432,33 @@ const PlayerContainer = () => {
       isReady={isReady}
       isValidVideo={isValidVideo}
     >
-      {(syncApi) => (
-        <div className="w-full h-full relative" data-fullscreen-container>
-          {hasError && (
-            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm p-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-youtube-red/10 border border-youtube-red/20 flex items-center justify-center mb-3">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
-                </svg>
+      {(syncApi) => {
+        syncApiRef.current = syncApi;
+        return (
+          <div className="w-full h-full relative z-40 touch-manipulation" data-fullscreen-container>
+            {hasError && (
+              <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm p-6 text-center">
+                <div className="w-12 h-12 rounded-full bg-youtube-red/10 border border-youtube-red/20 flex items-center justify-center mb-3">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
+                  </svg>
+                </div>
+                <h4 className="text-sm font-bold text-white mb-1">Playback Error</h4>
+                <p className="text-[11px] text-slate-400 max-w-xs">{errorMessage}</p>
               </div>
-              <h4 className="text-sm font-bold text-white mb-1">Playback Error</h4>
-              <p className="text-[11px] text-slate-400 max-w-xs">{errorMessage}</p>
-            </div>
-          )}
-          {!hasError && isMobile && isMiniPlayer && (
-            <div className="absolute inset-0 opacity-0 pointer-events-none">
+            )}
+            {!hasError && (
               <PlayerFactory
                 ref={playerRef}
                 sourceType={sourceType}
                 videoId={currentVideoId}
                 playing={isSynced && isPlaying}
                 volume={localVolume}
-                muted={!hasPlayedOnce ? true : isMuted}
+                muted={isMuted}
                 playbackRate={playbackRate}
-                onReady={() => { setIsReady(true); syncApi.onPlayerReady(); }}
-                onPlay={() => { setHasPlayedOnce(true); syncApi.handlePlay(); }}
+                captionsEnabled={captionsEnabled}
+                onReady={() => { setIsReady(true); syncApi.onPlayerReady(); syncApiRef.current = syncApi; }}
+                onPlay={syncApi.handlePlay}
                 onPause={syncApi.handlePause}
                 onEnded={handleEnded}
                 onDuration={setDuration}
@@ -471,42 +466,25 @@ const PlayerContainer = () => {
                 onSeek={(seconds) => setCurrentTime(seconds)}
                 onError={handleError}
               />
-            </div>
-          )}
-          {!hasError && !(isMobile && isMiniPlayer) && (
-            <PlayerFactory
-              ref={playerRef}
-              sourceType={sourceType}
-              videoId={currentVideoId}
-              playing={isSynced && isPlaying}
-              volume={localVolume}
-              muted={!hasPlayedOnce ? true : isMuted}
-              playbackRate={playbackRate}
-              onReady={() => { setIsReady(true); syncApi.onPlayerReady(); }}
-              onPlay={() => { setHasPlayedOnce(true); syncApi.handlePlay(); }}
-              onPause={syncApi.handlePause}
-              onEnded={handleEnded}
-              onDuration={setDuration}
-              onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds)}
-              onSeek={(seconds) => setCurrentTime(seconds)}
-              onError={handleError}
-            />
-          )}
+            )}
 
-          {isRoomMode && (
-            <PlayerControls
-              mode="full"
-              {...controlsCommonProps}
-            />
-          )}
+            <div className="absolute bottom-0 inset-x-0 h-10 z-20 pointer-events-auto" />
 
-          {isMiniPlayer && (
-            isMobile
-              ? <PlayerControls mode="mini-mobile" {...controlsCommonProps} />
-              : <PlayerControls mode="mini-desktop" {...controlsCommonProps} />
-          )}
-        </div>
-      )}
+            {isRoomMode && (
+              <PlayerControls
+                mode={isMobile ? 'full-mobile' : 'full'}
+                {...controlsCommonProps}
+              />
+            )}
+
+            {isMiniPlayer && (
+              isMobile
+                ? <PlayerControls mode="mini-mobile" {...controlsCommonProps} />
+                : <PlayerControls mode="mini-desktop" {...controlsCommonProps} />
+            )}
+          </div>
+        );
+      }}
     </PlayerSyncManager>
   );
 
@@ -515,13 +493,12 @@ const PlayerContainer = () => {
       <div ref={dragConstraintsRef}
         className={`fixed ${isMobile ? 'inset-3' : 'inset-6'} pointer-events-none z-40`} />
       <motion.div
-        layout={!isMobile}
         drag={isMiniPlayer && !isMobile}
         dragConstraints={dragConstraintsRef}
         dragElastic={0.1}
         dragMomentum={false}
-        className={`bg-slate-950/85 backdrop-blur-md border border-slate-800/80 pointer-events-auto flex items-center justify-center select-none transition-all duration-500 ${
-          isRoomMode && isTheaterMode ? '!fixed !inset-x-0 !top-0 !bottom-0 !w-full !h-full !z-40 rounded-none border-0' : ''
+        className={`bg-slate-950/85 border border-youtube-red/20 pointer-events-auto flex items-center justify-center select-none transition-[opacity,box-shadow] duration-500 z-50 ${
+          isRoomMode && isTheaterMode ? '!fixed !inset-x-0 !top-0 !bottom-0 !w-full !h-full !z-50 rounded-none border-0' : ''
         }`}
         style={{
           ...style,
@@ -541,7 +518,7 @@ const PlayerContainer = () => {
         )}
 
         {isRoomMode && isTheaterMode && (
-          <div className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm pointer-events-none" />
+          <div className="fixed inset-0 z-0 bg-black/60 backdrop-blur-sm pointer-events-none" />
         )}
 
         {playerContent}
