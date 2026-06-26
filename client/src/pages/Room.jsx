@@ -20,8 +20,9 @@ const Room = () => {
 
   const { token, user: currentUser } = useAuthStore();
   const { currentRoom, roomLoading, roomError, getRoomDetails, clearRoomState } = useRoomStore();
-  const { connectSocket, disconnectSocket } = useSocketStore();
+  const { connectSocket, leaveRoom, disconnectSocket } = useSocketStore();
   const { unreadCount, mentionCount, setChatActive } = useChatStore();
+  const { slotRect } = usePlayerStore();
 
   const [activeTab, setActiveTab] = useState('chat');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -84,13 +85,12 @@ const Room = () => {
       // Preserve socket connection if global player is active and playing
       const playerState = usePlayerStore.getState();
       if (playerState.isClosed) {
-        disconnectSocket();
-        clearRoomState();
+        leaveRoom();
       } else {
         playerState.setIsMiniPlayer(true);
       }
     };
-  }, [roomCode, token, getRoomDetails, connectSocket, disconnectSocket, clearRoomState]);
+  }, [roomCode, token, getRoomDetails, connectSocket, leaveRoom, disconnectSocket, clearRoomState]);
 
   if (roomLoading && !currentRoom) {
     return (
@@ -162,8 +162,7 @@ const Room = () => {
               <button
                 onClick={() => {
                   usePlayerStore.getState().resetPlayer();
-                  disconnectSocket();
-                  clearRoomState();
+                  leaveRoom();
                   navigate('/dashboard');
                 }}
                 className="flex items-center justify-center min-h-[36px] min-w-[36px] bg-slate-850 hover:bg-slate-800 text-slate-300 rounded-xl transition border border-slate-800 cursor-pointer"
@@ -192,8 +191,7 @@ const Room = () => {
               <button
                 onClick={() => {
                   usePlayerStore.getState().resetPlayer();
-                  disconnectSocket();
-                  clearRoomState();
+                  leaveRoom();
                   navigate('/dashboard');
                 }}
                 className="flex items-center gap-1.5 bg-youtube-red hover:bg-youtube-hover text-white py-1.5 px-3.5 rounded-xl text-xs font-bold transition shadow hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
@@ -213,9 +211,12 @@ const Room = () => {
           </div>
 
           {/* Right Panel / Sidebar (Tabbed widget visible on mobile, or on desktop when open) */}
-          <div className={`w-full md:w-[320px] lg:w-[380px] shrink-0 flex-1 md:flex-initial flex flex-col gap-3 min-h-0 ${
-            !isSidebarOpen ? 'md:hidden' : ''
-          }`}>
+          <div
+            className={`w-full md:w-[320px] lg:w-[380px] shrink-0 h-[420px] sm:h-[480px] md:h-auto flex flex-col gap-3 min-h-0 ${
+              !isSidebarOpen ? 'md:hidden' : ''
+            }`}
+            style={!isMobile && slotRect?.height ? { height: `${slotRect.height}px` } : {}}
+          >
             {/* Tab Bar Selector */}
             <div className="flex bg-slate-900/60 p-1 rounded-2xl border border-slate-800/80 font-bold text-xs gap-1 shadow-inner shrink-0 font-sans">
               <button

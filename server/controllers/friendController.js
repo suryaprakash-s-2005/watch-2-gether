@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import Friendship from '../models/Friendship.js';
 import WatchSession from '../models/WatchSession.js';
 import UserAnalytics from '../models/UserAnalytics.js';
+import DirectMessage from '../models/DirectMessage.js';
 
 
 const emitSocketNotification = (req, userId, event, data) => {
@@ -225,6 +226,13 @@ export const getFriends = async (req, res) => {
       const friendId = f.requesterId.toString() === userId.toString() ? f.receiverId : f.requesterId;
       const friendUser = await User.findById(friendId).select('name username displayName avatar bio lastSeen totalWatchMinutes');
       if (friendUser) {
+        // Count unread direct messages from this friend
+        const unreadCount = await DirectMessage.countDocuments({
+          senderId: friendId,
+          receiverId: userId,
+          read: false
+        });
+
         friendList.push({
           _id: friendUser._id,
           name: friendUser.name,
@@ -235,7 +243,8 @@ export const getFriends = async (req, res) => {
           lastSeen: friendUser.lastSeen,
           totalWatchMinutes: friendUser.totalWatchMinutes,
           hoursTogether: Math.round((f.sharedMinutes / 60) * 10) / 10,
-          lastInteraction: f.lastInteraction
+          lastInteraction: f.lastInteraction,
+          unreadCount: unreadCount
         });
       }
     }

@@ -72,6 +72,10 @@ const roomSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isPublic: {
+    type: Boolean,
+    default: false
+  },
   permissionMode: {
     type: String,
     enum: ['host-only', 'guest-control', 'democratic', 'anarchy'],

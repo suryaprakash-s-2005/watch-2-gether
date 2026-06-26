@@ -3,11 +3,15 @@ import { useState } from 'react';
 import useAuthStore from '../store/authStore';
 import { Play, LogOut, User, Users, Trophy, BarChart2, Tv, Sun, Moon, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import useDirectChatStore from '../store/useDirectChatStore';
 
 const Navbar = () => {
   const { user, logout, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const unreadDMs = useDirectChatStore((state) => state.unreadDMs);
+  const totalUnreadDMs = Object.values(unreadDMs).reduce((sum, count) => sum + count, 0);
 
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -76,13 +80,16 @@ const Navbar = () => {
               <button 
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 cursor-pointer relative ${
                   isActive(item) ? 'bg-slate-800 text-white border border-slate-700/50' : 'text-slate-400 hover:text-slate-200'
                 }`}
                 title={item.title}
               >
                 <Icon size={13} />
                 <span>{item.label}</span>
+                {item.label === 'Friends' && totalUnreadDMs > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-youtube-red text-white text-[8px] font-extrabold w-3.5 h-3.5 rounded-full flex items-center justify-center animate-pulse"></span>
+                )}
               </button>
             );
           })}
@@ -155,10 +162,13 @@ const Navbar = () => {
         {isAuthenticated && (
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 rounded-lg bg-slate-800/40 text-slate-300 hover:text-white border border-slate-700/50 cursor-pointer flex items-center justify-center min-w-[44px] min-h-[44px]"
+            className="p-2 rounded-lg bg-slate-800/40 text-slate-300 hover:text-white border border-slate-700/50 cursor-pointer flex items-center justify-center min-w-[44px] min-h-[44px] relative"
             aria-label="Toggle navigation menu"
           >
             {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            {!isMobileMenuOpen && totalUnreadDMs > 0 && (
+              <span className="absolute -top-1 -right-1 bg-youtube-red text-white text-[8px] font-extrabold w-3.5 h-3.5 rounded-full flex items-center justify-center animate-pulse"></span>
+            )}
           </button>
         )}
       </div>
@@ -192,14 +202,21 @@ const Navbar = () => {
                   <button
                     key={item.path}
                     onClick={() => handleNavClick(item.path)}
-                    className={`flex items-center gap-3 w-full px-4 min-h-[44px] rounded-xl text-sm font-bold transition border cursor-pointer ${
+                    className={`flex items-center justify-between w-full px-4 min-h-[44px] rounded-xl text-sm font-bold transition border cursor-pointer ${
                       active 
                         ? 'bg-youtube-red/10 text-youtube-red border-youtube-red/20' 
                         : 'text-slate-400 hover:text-slate-200 bg-slate-900/30 border-slate-850'
                     }`}
                   >
-                    <Icon size={16} />
-                    <span>{item.label}</span>
+                    <div className="flex items-center gap-3">
+                      <Icon size={16} />
+                      <span>{item.label}</span>
+                    </div>
+                    {item.label === 'Friends' && totalUnreadDMs > 0 && (
+                      <span className="bg-youtube-red text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full">
+                        {totalUnreadDMs}
+                      </span>
+                    )}
                   </button>
                 );
               })}

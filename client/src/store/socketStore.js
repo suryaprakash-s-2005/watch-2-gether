@@ -4,13 +4,19 @@ import useRoomStore from './roomStore';
 import useChatStore from './chatStore';
 import useAuthStore from './authStore';
 import usePlayerStore from './playerStore';
+import useDirectChatStore from './useDirectChatStore';
 
 const useSocketStore = create((set, get) => ({
   socket: null,
   isConnecting: false,
 
   connectSocket: (token, roomCode) => {
-    if (get().socket || get().isConnecting) return;
+    if (get().socket || get().isConnecting) {
+      if (get().socket && roomCode) {
+        get().socket.emit('join-room', { roomCode });
+      }
+      return;
+    }
 
     set({ isConnecting: true });
     const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
@@ -29,7 +35,9 @@ const useSocketStore = create((set, get) => ({
 
     socketInstance.on('connect', () => {
       set({ isConnecting: false });
-      socketInstance.emit('join-room', { roomCode });
+      if (roomCode) {
+        socketInstance.emit('join-room', { roomCode });
+      }
     });
 
     socketInstance.on('connect_error', (err) => {
@@ -281,6 +289,26 @@ const useSocketStore = create((set, get) => ({
       }
     });
 
+    // Direct Messages real-time handlers
+    socketInstance.on('direct-message', (message) => {
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        useDirectChatStore.getState().addDirectMessage(message, currentUser._id);
+      }
+    });
+
+    socketInstance.on('direct-typing-start', (data) => {
+      useDirectChatStore.getState().setTypingFriend(data.userId, true);
+    });
+
+    socketInstance.on('direct-typing-stop', (data) => {
+      useDirectChatStore.getState().setTypingFriend(data.userId, false);
+    });
+
+    socketInstance.on('direct-messages-read', (data) => {
+      useDirectChatStore.getState().markMessagesAsReadForFriend(data.readerId);
+    });
+
     socketInstance.on('error-msg', (message) => {
       console.warn('Socket error returned:', message);
       
@@ -395,6 +423,29 @@ const useSocketStore = create((set, get) => ({
   emitSetCoHost: (userId, isCoHost) => {
     const { socket } = get();
     if (socket) socket.emit('set-co-host', { userId, isCoHost });
+  },
+
+  leaveRoom: () => {
+    const { socket } = get();
+    if (socket) {
+      socket.emit('leave-room');
+    }
+    useRoomStore.getState().clearRoomState();
+  },
+
+  emitDirectMessage: (receiverId, message) => {
+    const { socket } = get();
+    if (socket) socket.emit('direct-message', { receiverId, message });
+  },
+
+  emitDirectTypingStart: (receiverId) => {
+    const { socket } = get();
+    if (socket) socket.emit('direct-typing-start', { receiverId });
+  },
+
+  emitDirectTypingStop: (receiverId) => {
+    const { socket } = get();
+    if (socket) socket.emit('direct-typing-stop', { receiverId });
   }
 }));
 

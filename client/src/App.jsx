@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './store/authStore';
+import useSocketStore from './store/socketStore';
+import useFriendStore from './store/friendStore';
 import ProtectedRoute from './components/ProtectedRoute';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -14,6 +16,8 @@ import Layout from './components/Layout';
 
 function App() {
   const { token, getMe } = useAuthStore();
+  const { connectSocket, disconnectSocket } = useSocketStore();
+  const { fetchFriends } = useFriendStore();
 
   useEffect(() => {
     const theme = localStorage.getItem('theme') || 'dark';
@@ -30,6 +34,16 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (token) {
+      connectSocket(token);
+      fetchFriends();
+    } else {
+      disconnectSocket();
+    }
+  }, [token, connectSocket, disconnectSocket, fetchFriends]);
+
 
   return (
     <BrowserRouter>

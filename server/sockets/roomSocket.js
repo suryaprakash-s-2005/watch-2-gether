@@ -45,15 +45,112 @@ export const socketAuth = async (socket, next) => {
 export const roomSocketHandler = (io) => {
   io.use(socketAuth);
 
+  const handleLeaveRoom = async (socket) => {
+    const code = socket.roomCode;
+    if (!code) return;
+
+    socket.roomCode = null;
+    socket.leave(code);
+
+    try {
+      let initialRoom = await Room.findOne({ roomCode: code });
+      if (!initialRoom) return;
+
+      if (socket.joinTime) {
+        const sessionDuration = (Date.now() - socket.joinTime) / 60000; // in minutes
+        if (sessionDuration >= 1) {
+          await WatchSession.create({
+            roomId: initialRoom._id,
+            participants: [socket.user._id],
+            startTime: new Date(socket.joinTime),
+            endTime: new Date(),
+            duration: sessionDuration
+          });
+
+          const user = await User.findById(socket.user._id);
+          if (user && (!user.longestWatchSession || sessionDuration > user.longestWatchSession)) {
+            await User.findByIdAndUpdate(socket.user._id, {
+              $set: { longestWatchSession: Math.round(sessionDuration) }
+            });
+          }
+        }
+        socket.joinTime = null;
+      }
+
+      let success = false;
+      let retries = 5;
+      while (!success && retries > 0) {
+        try {
+          let room = await Room.findOne({ roomCode: code });
+          if (!room) return;
+
+          room.users = room.users.filter(u => u.socketId !== socket.id);
+
+          let hostPromoted = false;
+          let newHostId = room.hostId;
+
+          if (room.hostId.toString() === socket.user._id.toString() && room.users.length > 0) {
+            const nextHost = room.users[0]; // Oldest connected client is at index 0
+            room.hostId = nextHost.userId;
+            newHostId = nextHost.userId;
+            hostPromoted = true;
+            console.log(`Promoting ${nextHost.username} to host in Room: ${code}`);
+          }
+
+          await room.save();
+          success = true;
+
+          if (room.users.length === 0) {
+            roomState.delete(code);
+          } else if (hostPromoted) {
+            roomState.update(code, { hostId: newHostId });
+          }
+
+          io.to(code).emit('user-left', {
+            userId: socket.user._id,
+            username: socket.user.name,
+            users: room.users
+          });
+
+          if (hostPromoted) {
+            io.to(code).emit('host-change', {
+              hostId: newHostId,
+              message: `Host left. ${room.users[0].username} is the new host!`
+            });
+          }
+        } catch (err) {
+          if (err.name === 'VersionError') {
+            retries--;
+            console.warn(`[roomSocket] VersionError during room cleanup for ${code}. Retrying... (${retries} left)`);
+            await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 50));
+          } else {
+            throw err;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error during room leave cleanup:', err);
+    }
+  };
+
   io.on('connection', (socket) => {
     // Register upgraded chat socket events
     registerChatHandlers(io, socket);
     
     socket.join(socket.user._id.toString());
 
-    
+    // Update lastSeen immediately when connecting
+    User.findByIdAndUpdate(socket.user._id, { $set: { lastSeen: new Date() } }).catch(err => {
+      console.error('Error updating user lastSeen on connection:', err.message);
+    });
+
     socket.on('join-room', async ({ roomCode }) => {
       const code = roomCode.toUpperCase();
+
+      // If already in a room, leave it first
+      if (socket.roomCode && socket.roomCode !== code) {
+        await handleLeaveRoom(socket);
+      }
 
       let success = false;
       let retries = 3;
@@ -780,94 +877,12 @@ export const roomSocketHandler = (io) => {
     // Note: Upgraded chat messaging is now handled in chatSocket.js
     
     
+    socket.on('leave-room', async () => {
+      await handleLeaveRoom(socket);
+    });
+
     socket.on('disconnect', async () => {
-      const code = socket.roomCode;
-      if (!code) return;
-
-      try {
-        let initialRoom = await Room.findOne({ roomCode: code });
-        if (!initialRoom) return;
-
-        // Log watch session duration once
-        if (socket.joinTime) {
-          const sessionDuration = (Date.now() - socket.joinTime) / 60000; // in minutes
-          if (sessionDuration >= 1) {
-            await WatchSession.create({
-              roomId: initialRoom._id,
-              participants: [socket.user._id],
-              startTime: new Date(socket.joinTime),
-              endTime: new Date(),
-              duration: sessionDuration
-            });
-
-            // Update user's longest watch session record
-            const user = await User.findById(socket.user._id);
-            if (user && (!user.longestWatchSession || sessionDuration > user.longestWatchSession)) {
-              await User.findByIdAndUpdate(socket.user._id, {
-                $set: { longestWatchSession: Math.round(sessionDuration) }
-              });
-            }
-          }
-        }
-
-        // Concurrency retry loop for modifying active members list and host reassignment
-        let success = false;
-        let retries = 5;
-        while (!success && retries > 0) {
-          try {
-            let room = await Room.findOne({ roomCode: code });
-            if (!room) return;
-
-            // Evict from active members list
-            room.users = room.users.filter(u => u.socketId !== socket.id);
-
-            let hostPromoted = false;
-            let newHostId = room.hostId;
-
-            // Reassign host if previous host left and people remain
-            if (room.hostId.toString() === socket.user._id.toString() && room.users.length > 0) {
-              const nextHost = room.users[0]; // Oldest connected client is at index 0
-              room.hostId = nextHost.userId;
-              newHostId = nextHost.userId;
-              hostPromoted = true;
-              console.log(`Promoting ${nextHost.username} to host in Room: ${code}`);
-            }
-
-            await room.save();
-            success = true;
-
-            if (room.users.length === 0) {
-              roomState.delete(code);
-            } else if (hostPromoted) {
-              roomState.update(code, { hostId: newHostId });
-            }
-
-            io.to(code).emit('user-left', {
-              userId: socket.user._id,
-              username: socket.user.name,
-              users: room.users
-            });
-
-            if (hostPromoted) {
-              io.to(code).emit('host-change', {
-                hostId: newHostId,
-                message: `Host left. ${room.users[0].username} is the new host!`
-              });
-            }
-          } catch (err) {
-            if (err.name === 'VersionError') {
-              retries--;
-              console.warn(`[roomSocket] VersionError during disconnect cleanup for room ${code}. Retrying... (${retries} left)`);
-              // Wait a brief randomized interval to let the concurrent transaction commit
-              await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 50));
-            } else {
-              throw err; // Re-throw other errors
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error during socket cleanup:', err);
-      }
+      await handleLeaveRoom(socket);
     });
   });
 

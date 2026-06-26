@@ -1,5 +1,7 @@
 import Message from '../models/Message.js';
 import Room from '../models/Room.js';
+import DirectMessage from '../models/DirectMessage.js';
+import Friendship from '../models/Friendship.js';
 
 /**
  * Register upgraded real-time chat socket handlers.
@@ -143,6 +145,65 @@ export const registerChatHandlers = (io, socket) => {
     } catch (err) {
       console.error('Error saving/broadcasting chat message:', err);
     }
+  });
+
+  // 4a. Direct Messages: Send private message
+  socket.on('direct-message', async ({ receiverId, message }) => {
+    if (!receiverId || !message || !message.trim()) return;
+
+    try {
+      const senderId = socket.user._id;
+
+      // Verify friendship exists and is accepted
+      const friendship = await Friendship.findOne({
+        status: 'accepted',
+        $or: [
+          { requesterId: senderId, receiverId: receiverId },
+          { requesterId: receiverId, receiverId: senderId }
+        ]
+      });
+
+      if (!friendship) {
+        socket.emit('error-msg', 'You can only message accepted friends.');
+        return;
+      }
+
+      // Save direct message
+      const dm = await DirectMessage.create({
+        senderId,
+        receiverId,
+        message: message.trim(),
+        createdAt: new Date()
+      });
+
+      // Emit to both sender and receiver's private channels
+      io.to(senderId.toString()).emit('direct-message', dm);
+      io.to(receiverId.toString()).emit('direct-message', dm);
+
+      // Update friendship last interaction
+      friendship.lastInteraction = new Date();
+      await friendship.save();
+    } catch (err) {
+      console.error('Error handling direct-message event:', err);
+    }
+  });
+
+  // 4b. Direct Messages: Direct Typing start
+  socket.on('direct-typing-start', ({ receiverId }) => {
+    if (!receiverId) return;
+    io.to(receiverId.toString()).emit('direct-typing-start', {
+      userId: socket.user._id,
+      username: socket.user.username
+    });
+  });
+
+  // 4c. Direct Messages: Direct Typing stop
+  socket.on('direct-typing-stop', ({ receiverId }) => {
+    if (!receiverId) return;
+    io.to(receiverId.toString()).emit('direct-typing-stop', {
+      userId: socket.user._id,
+      username: socket.user.username
+    });
   });
 
   // 5. Cleanup on disconnect: Ensure typing indicators are cleared

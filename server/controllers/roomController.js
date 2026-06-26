@@ -6,11 +6,11 @@ import generateRoomCode from '../utils/generateRoomCode.js';
 
 
 export const createRoom = async (req, res) => {
+  const { isPublic } = req.body;
   try {
     let roomCode = generateRoomCode();
     let codeExists = await Room.findOne({ roomCode });
 
-    
     while (codeExists) {
       roomCode = generateRoomCode();
       codeExists = await Room.findOne({ roomCode });
@@ -19,10 +19,10 @@ export const createRoom = async (req, res) => {
     const room = await Room.create({
       roomCode,
       hostId: req.user._id,
+      isPublic: !!isPublic,
       users: [] 
     });
 
-    
     await User.findByIdAndUpdate(req.user._id, { $inc: { totalHostedRooms: 1 } });
 
     res.status(201).json(room);
@@ -30,9 +30,6 @@ export const createRoom = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-
-
 
 export const joinRoom = async (req, res) => {
   const { roomCode } = req.body;
@@ -54,9 +51,6 @@ export const joinRoom = async (req, res) => {
   }
 };
 
-
-
-
 export const getRoom = async (req, res) => {
   const { roomCode } = req.params;
 
@@ -70,5 +64,25 @@ export const getRoom = async (req, res) => {
     res.status(200).json(room);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Fetch all available public watch rooms.
+ * @route GET /api/rooms/public
+ */
+export const getPublicRooms = async (req, res) => {
+  try {
+    const rooms = await Room.find({ isPublic: true })
+      .populate('hostId', 'name username displayName avatar')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json(rooms);
+  } catch (error) {
+    console.error('Error fetching public rooms:', error);
+    return res.status(500).json({
+      message: 'Failed to fetch public rooms',
+      error: error.message
+    });
   }
 };

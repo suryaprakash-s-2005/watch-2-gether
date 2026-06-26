@@ -5,9 +5,12 @@ import api from '../services/api';
 import Navbar from '../components/Navbar';
 import { 
   Users, UserPlus, Send, Check, X, 
-  Trash2, TrendingUp, Sparkles, MessageCircle, Clock
+  Trash2, TrendingUp, Sparkles, MessageCircle, Clock,
+  MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import useDirectChatStore from '../store/useDirectChatStore';
+import DirectChatBox from '../components/DirectChatBox';
 
 const Friends = () => {
   const navigate = useNavigate();
@@ -15,6 +18,8 @@ const Friends = () => {
     friends, pendingIncoming, pendingOutgoing, suggestions, isLoading,
     fetchFriends, sendRequest, acceptRequest, rejectRequest, removeFriend, fetchSuggestions 
   } = useFriendStore();
+
+  const { activeChatFriendId, setActiveChatFriendId, unreadDMs, setInitialUnreads } = useDirectChatStore();
 
   const [activeTab, setActiveTab] = useState('all'); 
   const [searchUsername, setSearchUsername] = useState('');
@@ -42,6 +47,16 @@ const Friends = () => {
     fetchFriends();
     fetchSuggestions();
   }, [fetchFriends, fetchSuggestions]);
+
+  useEffect(() => {
+    if (friends.length > 0) {
+      const initialUnreads = {};
+      friends.forEach((f) => {
+        initialUnreads[f._id] = f.unreadCount || 0;
+      });
+      setInitialUnreads(initialUnreads);
+    }
+  }, [friends, setInitialUnreads]);
 
   
   useEffect(() => {
@@ -338,18 +353,38 @@ const Friends = () => {
                                 }`}></div>
                               </div>
                               <div className="min-w-0">
-                                <h4 className="text-xs md:text-sm font-bold text-white group-hover:text-youtube-red transition-colors truncate">{friend.displayName}</h4>
+                                <div className="flex items-center gap-1.5">
+                                  <h4 className="text-xs md:text-sm font-bold text-white group-hover:text-youtube-red transition-colors truncate">{friend.displayName}</h4>
+                                  {unreadDMs[friend._id] > 0 && (
+                                    <span className="bg-youtube-red text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center animate-pulse shrink-0">
+                                      {unreadDMs[friend._id]}
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-[10px] md:text-[11px] text-slate-400 truncate">@{friend.username} • {friend.hoursTogether}h watched together</p>
                               </div>
                             </div>
                             
-                            <button
-                              onClick={() => removeFriend(friend._id)}
-                              className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-800/80 hover:bg-red-500/10 text-slate-400 hover:text-red-400 border border-slate-700/50 hover:border-red-500/20 transition cursor-pointer shrink-0 ml-2"
-                              title="Remove Friend"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedFriend(friend);
+                                  setActiveChatFriendId(friend._id);
+                                }}
+                                className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-800/80 hover:bg-sky-500/10 text-slate-400 hover:text-sky-400 border border-slate-700/50 hover:border-sky-500/20 transition cursor-pointer"
+                                title="Message Friend"
+                              >
+                                <MessageSquare size={14} />
+                              </button>
+
+                              <button
+                                onClick={() => removeFriend(friend._id)}
+                                className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-800/80 hover:bg-red-500/10 text-slate-400 hover:text-red-400 border border-slate-700/50 hover:border-red-500/20 transition cursor-pointer"
+                                title="Remove Friend"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           </div>
                         ))
                       )}
@@ -487,18 +522,24 @@ const Friends = () => {
           </div>
         </div>
 
-        {/* Right Side: Animated Floating Bubble Graph (5 columns on lg) */}
-        <div className="lg:col-span-5 flex flex-col h-full min-h-[450px]">
-          <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col flex-1 overflow-hidden hover:border-slate-750 transition duration-300">
-            <div className="mb-4">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Sparkles className="text-sky-400 animate-pulse" size={18} />
-                Friends Social Graph
-              </h2>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Bubbles sizes map to watch time together. Grabs bubbles to float/drag them!
-              </p>
-            </div>
+        {/* Right Side: Animated Floating Bubble Graph OR Chat Box (5 columns on lg) */}
+        <div className="lg:col-span-5 flex flex-col h-[550px] lg:h-[580px] min-h-[450px]">
+          {activeChatFriendId && friends.find(f => f._id === activeChatFriendId) ? (
+            <DirectChatBox
+              friend={friends.find(f => f._id === activeChatFriendId)}
+              onClose={() => setActiveChatFriendId(null)}
+            />
+          ) : (
+            <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col flex-1 overflow-hidden hover:border-slate-750 transition duration-300">
+              <div className="mb-4">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Sparkles className="text-sky-400 animate-pulse" size={18} />
+                  Friends Social Graph
+                </h2>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Bubbles sizes map to watch time together. Grabs bubbles to float/drag them!
+                </p>
+              </div>
 
             {}
             <div 
@@ -644,6 +685,14 @@ const Friends = () => {
                           
                           <button
                             type="button"
+                            onClick={() => setActiveChatFriendId(selectedFriend._id)}
+                            className="bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer"
+                          >
+                            Message
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => navigate(`/profile/${selectedFriend.username}`)}
                             className="bg-youtube-red hover:bg-youtube-hover text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer"
                           >
@@ -657,7 +706,8 @@ const Friends = () => {
               )}
             </div>
           </div>
-        </div>
+        )}
+      </div>
 
       </main>
     </div>

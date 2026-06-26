@@ -8,11 +8,12 @@ const useRoomStore = create((set) => ({
   roomLoading: false,
   roomError: null,
   playbackCommand: null,
+  publicRooms: [],
 
-  createRoom: async () => {
+  createRoom: async (isPublic = false) => {
     set({ roomLoading: true, roomError: null });
     try {
-      const { data } = await api.post('/rooms/create');
+      const { data } = await api.post('/rooms/create', { isPublic });
       set({ currentRoom: data, roomLoading: false });
       return data.roomCode;
     } catch (err) {
@@ -125,6 +126,19 @@ const useRoomStore = create((set) => ({
       if (!state.currentRoom) return {};
       return { currentRoom: { ...state.currentRoom, coHosts } };
     });
+  },
+
+  fetchPublicRooms: async () => {
+    set({ roomLoading: true, roomError: null });
+    try {
+      const { data } = await api.get('/rooms/public');
+      set({ publicRooms: data || [], roomLoading: false });
+    } catch (err) {
+      set({
+        roomError: err.response?.data?.message || 'Failed to fetch public rooms',
+        roomLoading: false,
+      });
+    }
   },
 }));
 
